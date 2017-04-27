@@ -52,6 +52,7 @@
 #include "rpcTransport.h"
 #include "dbgPrint.h"
 #include "hostConsole.h"
+#include "switchboard.h"
 
 /*********************************************************************
  * MACROS
@@ -739,6 +740,25 @@ void* appMsgProcess(void *argument)
 	return 0;
 }
 
+void fillData(char *cmd)
+{
+    char buf[6];
+    sbMessage_t *msg = (sbMessage_t *) buf;
+    
+    msg->hdr.message_type = SB_STATE_CHANGE_REQ;
+    msg->data.boardData.sbType.type = SB_TYPE_4X4;
+    msg->data.boardData.switch1 = SW_TURN_ON;
+    msg->data.boardData.switch2 = SW_TURN_OFF;
+    msg->data.boardData.switch3 = SW_TURN_ON;
+    msg->data.boardData.switch4 = SW_TURN_OFF;
+    msg->data.boardData.switch5 = SW_DONT_CARE;
+    msg->data.boardData.switch6 = SW_DONT_CARE;
+    msg->data.boardData.switch7 = SW_DONT_CARE;
+    msg->data.boardData.switch8 = SW_DONT_CARE;
+    
+    cmd = msg;
+}
+
 void* appProcess(void *argument)
 {
 	int32_t status;
@@ -773,6 +793,7 @@ void* appProcess(void *argument)
 
 	char cmd[128];
 	int attget;
+        int flag = 0;
 
 	while (quit == 0)
 	{
@@ -822,6 +843,11 @@ void* appProcess(void *argument)
 				quit = 1;
 				break;
 			}
+            else (strcmp(cmd, "SEND") == 0)
+            {
+                flag = 1;
+                fillData(cmd);
+            }
 			data = (uint8_t*) cmd;
 			memcpy(DataRequest.Data, data, strlen(cmd));
 			DataRequest.Len = strlen(cmd);
