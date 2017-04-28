@@ -43,6 +43,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include  <sys/ipc.h>
+#include  <sys/shm.h>
+
 
 #include "rpc.h"
 #include "mtSys.h"
@@ -758,10 +761,37 @@ void fillData(char *buf)
     buf[6] = '\0';
 }
 
+#define  NOT_READY  -1
+#define  FILLED     0
+#define  TAKEN      1
+
+struct Memory {
+        int  status;
+        char data[50];
+};
+
 void* appProcess(void *argument)
 {
 	int32_t status;
 	uint32_t quit = 0;
+
+	key_t          ShmKEY;
+	int            ShmID;
+	struct Memory  *ShmPTR;
+    
+	ShmKEY = ftok("/home", 'x');
+	ShmID = shmget(ShmKEY, sizeof(struct Memory), 0666);
+	if (ShmID < 0) {
+        	printf("*** shmget error (client) ***\n");
+	}   
+    
+	ShmPTR = (struct Memory *) shmat(ShmID, NULL, 0); 
+	if (ShmPTR == NULL) {
+        	printf("*** shmat error (client) ***\n");
+	}   
+    
+
+
 
 	//Flush all messages from the que
 	do
@@ -801,12 +831,12 @@ void* appProcess(void *argument)
 		initDone = 0;
 		displayDevices();
 		DataRequestFormat_t DataRequest;
-		consolePrint("Enter DstAddr:\n");
+		consolePrint("Enter DstAddr here:\n");
 		consoleGetLine(cmd, 128);
 		sscanf(cmd, "%x", &attget);
 		DataRequest.DstAddr = (uint16_t) attget;
 
-		consolePrint("Enter DstEndpoint:\n");
+		consolePrint("Enter DstEndpoint here:\n");
 		consoleGetLine(cmd, 128);
 		sscanf(cmd, "%x", &attget);
 		DataRequest.DstEndpoint = (uint8_t) attget;
@@ -826,24 +856,30 @@ void* appProcess(void *argument)
 		while (1)
 		{
 			uint8_t *data;
+			char server_cmd[50];
 			//initDone = 0;
 
 			consolePrint(
 			        "Enter message to send or type CHANGE to change the destination\n");
 			consolePrint("or QUIT to exit\n");
 			flag = 0;
-			consoleGetLine(cmd, 128);
 			//initDone = 1;
-			if (strcmp(cmd, "CHANGE") == 0)
+			while (ShmPTR->status != FILLED)
+				continue;
+			ShmPTR->status = TAKEN;
+			memset(server_cmd,0,50);
+			memcpy(server_cmd, ShmPTR->data, strlen(ShmPTR->data));
+			fprintf(stderr, "Command received %s\n", server_cmd);
+			if (strcmp(server_cmd, "CHANGE") == 0)
 			{
 				break;
 			}
-			else if (strcmp(cmd, "QUIT") == 0)
+			else if (strcmp(server_cmd, "QUIT") == 0)
 			{
 				quit = 1;
 				break;
 			}
-            		else if (strcmp(cmd, "SEND") == 0)
+            		else if (strcmp(server_cmd, "SEND") == 0)
             		{
                 		flag = 1;
                 		fillData(buf);
@@ -853,13 +889,13 @@ void* appProcess(void *argument)
 				data = (uint8_t*) buf;
 				memcpy(DataRequest.Data, data, sizeof(sbMessage_t));
 				DataRequest.Len = sizeof(sbMessage_t);
-				fprintf(stderr, "Here %s.", DataRequest.Data);
+				fprintf(stderr, "Here %x\n", *(uint32_t *)&(((sbMessage_t *)buf)->data.boardData.switchData));
 				fprintf(stderr, "Len %u.\n", DataRequest.Len);
 			} else 
 			{
-				data = (uint8_t*) cmd;
-				memcpy(DataRequest.Data, data, strlen(cmd));
-				DataRequest.Len = strlen(cmd);
+				data = (uint8_t*) server_cmd;
+				memcpy(DataRequest.Data, data, strlen(server_cmd));
+				DataRequest.Len = strlen(server_cmd);
 			}
 			initDone = 0;
 			afDataRequest(&DataRequest);
@@ -869,6 +905,7 @@ void* appProcess(void *argument)
 
 	}
 
+	shmdt((void *) ShmPTR);
 	return 0;
 }
 
