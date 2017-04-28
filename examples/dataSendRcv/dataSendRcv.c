@@ -740,23 +740,22 @@ void* appMsgProcess(void *argument)
 	return 0;
 }
 
-void fillData(char *cmd)
+void fillData(char *buf)
 {
-    char buf[6];
     sbMessage_t *msg = (sbMessage_t *) buf;
     
     msg->hdr.message_type = SB_STATE_CHANGE_REQ;
     msg->data.boardData.sbType.type = SB_TYPE_4X4;
-    msg->data.boardData.switch1 = SW_TURN_ON;
-    msg->data.boardData.switch2 = SW_TURN_OFF;
-    msg->data.boardData.switch3 = SW_TURN_ON;
-    msg->data.boardData.switch4 = SW_TURN_OFF;
-    msg->data.boardData.switch5 = SW_DONT_CARE;
-    msg->data.boardData.switch6 = SW_DONT_CARE;
-    msg->data.boardData.switch7 = SW_DONT_CARE;
-    msg->data.boardData.switch8 = SW_DONT_CARE;
+    msg->data.boardData.switchData.state.switch1 = SW_TURN_ON;
+    msg->data.boardData.switchData.state.switch2 = SW_TURN_OFF;
+    msg->data.boardData.switchData.state.switch3 = SW_TURN_ON;
+    msg->data.boardData.switchData.state.switch4 = SW_TURN_OFF;
+    msg->data.boardData.switchData.state.switch5 = SW_DONT_CARE;
+    msg->data.boardData.switchData.state.switch6 = SW_DONT_CARE;
+    msg->data.boardData.switchData.state.switch7 = SW_DONT_CARE;
+    msg->data.boardData.switchData.state.switch8 = SW_DONT_CARE;
     
-    cmd = msg;
+    buf[6] = '\0';
 }
 
 void* appProcess(void *argument)
@@ -792,6 +791,7 @@ void* appProcess(void *argument)
 	status = sysOsalNvWrite(&nvWrite);
 
 	char cmd[128];
+	char buf[128];
 	int attget;
         int flag = 0;
 
@@ -831,7 +831,7 @@ void* appProcess(void *argument)
 			consolePrint(
 			        "Enter message to send or type CHANGE to change the destination\n");
 			consolePrint("or QUIT to exit\n");
-
+			flag = 0;
 			consoleGetLine(cmd, 128);
 			//initDone = 1;
 			if (strcmp(cmd, "CHANGE") == 0)
@@ -843,14 +843,24 @@ void* appProcess(void *argument)
 				quit = 1;
 				break;
 			}
-            else (strcmp(cmd, "SEND") == 0)
-            {
-                flag = 1;
-                fillData(cmd);
-            }
-			data = (uint8_t*) cmd;
-			memcpy(DataRequest.Data, data, strlen(cmd));
-			DataRequest.Len = strlen(cmd);
+            		else if (strcmp(cmd, "SEND") == 0)
+            		{
+                		flag = 1;
+                		fillData(buf);
+            		}
+			if (flag) 
+			{
+				data = (uint8_t*) buf;
+				memcpy(DataRequest.Data, data, sizeof(sbMessage_t));
+				DataRequest.Len = sizeof(sbMessage_t);
+				fprintf(stderr, "Here %s.", DataRequest.Data);
+				fprintf(stderr, "Len %u.\n", DataRequest.Len);
+			} else 
+			{
+				data = (uint8_t*) cmd;
+				memcpy(DataRequest.Data, data, strlen(cmd));
+				DataRequest.Len = strlen(cmd);
+			}
 			initDone = 0;
 			afDataRequest(&DataRequest);
 			rpcWaitMqClientMsg(500);
