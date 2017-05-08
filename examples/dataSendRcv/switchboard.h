@@ -34,9 +34,6 @@ typedef struct
 #define SW_STATEC_DONT_CARE      0x5
 typedef struct
 {
-//  union 
-//  {
-//   uint32_t val;
    struct 
    { 
      uint8 switch1 :4;
@@ -48,7 +45,6 @@ typedef struct
      uint8 switch7 :4;
      uint8 switch8 :4;
    } state;
-//  }u;
 } switchState_t;
 
 
