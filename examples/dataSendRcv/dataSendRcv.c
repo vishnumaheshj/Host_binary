@@ -821,10 +821,7 @@ void* appProcess(void *argument)
 	status = sysOsalNvWrite(&nvWrite);
 
 	char cmd[128];
-	char buf[128];
 	int attget;
-        int flag = 0;
-	int i;
 
 	while (quit == 0)
 	{
@@ -863,7 +860,6 @@ void* appProcess(void *argument)
 			consolePrint(
 			        "Enter message to send or type CHANGE to change the destination\n");
 			consolePrint("or QUIT to exit\n");
-			flag = 0;
 			//initDone = 1;
 			while (ShmPTR->status != FILLED)
 				continue;
@@ -880,54 +876,11 @@ void* appProcess(void *argument)
 				quit = 1;
 				break;
 			}
-            		else if (strcmp(server_cmd, "SEND") == 0)
-            		{
-                		flag = 1;
-                		fillData(buf);
-            		}
 			else
 			{
-                		fillData(buf);
-			}
-
-
-			if (flag) 
-			{
-				data = (uint8_t*) buf;
-				memcpy(DataRequest.Data, data, sizeof(sbMessage_t));
-				DataRequest.Len = sizeof(sbMessage_t);
-				fprintf(stderr, "Here %x\n", *(uint32_t *)&(((sbMessage_t *)buf)->data.boardData.switchData));
-				fprintf(stderr, "Len %u.\n", DataRequest.Len);
-			} 
-			else 
-			{
 				data = (uint8_t*) server_cmd;
-				if (memcmp(buf, server_cmd, sizeof(sbMessage_t)) == 0)
-				{
-					memcpy(DataRequest.Data, data, sizeof(sbMessage_t));
-					DataRequest.Len = 6;
-					fprintf(stdout, "Structures  are EQUAL.\n");
-					fprintf(stdout, "Data: ");
-					for (i=0; i<6; i++)
-						fprintf(stdout, "%02x ",*(data + i));
-					fprintf(stdout, "\nBuf: ");
-					for (i=0; i<6; i++)
-						fprintf(stdout, "%02x ",*(buf + i));
-					fprintf(stdout, "\n");
-				}
-				else
-				{
-					memcpy(DataRequest.Data, data, strlen(server_cmd));
-					DataRequest.Len = strlen(server_cmd);
-					fprintf(stderr, "Structures  are NOT EQUAL.\n");
-					fprintf(stdout, "Data: ");
-					for (i=0; i<6; i++)
-						fprintf(stdout, "%02x ",*(data + i));
-					fprintf(stdout, "\nBuf: ");
-					for (i=0; i<6; i++)
-						fprintf(stdout, "%02x ",*(buf + i));
-					fprintf(stdout, "\n");
-				}
+				memcpy(DataRequest.Data, data, sizeof(sbMessage_t));
+				DataRequest.Len = 6;
 			}
 			initDone = 0;
 			afDataRequest(&DataRequest);
