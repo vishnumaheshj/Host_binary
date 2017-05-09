@@ -157,7 +157,7 @@ typedef struct
 {
 	uint16_t ChildAddr;
 	uint8_t Type;
-
+	uint8_t active_ep;
 } ChildNode_t;
 
 typedef struct
@@ -341,6 +341,7 @@ static uint8_t mtZdoMgmtLqiRspCb(MgmtLqiRspFormat_t *msg)
 
 static uint8_t mtZdoActiveEpRspCb(ActiveEpRspFormat_t *msg)
 {
+	int child = 0;
 
 	//SimpleDescReqFormat_t simReq;
 	consolePrint("NwkAddr: 0x%04X\n", msg->NwkAddr);
@@ -352,6 +353,12 @@ static uint8_t mtZdoActiveEpRspCb(ActiveEpRspFormat_t *msg)
 		for (i = 0; i < msg->ActiveEPCount; i++)
 		{
 			consolePrint("0x%02X\t", msg->ActiveEPList[i]);
+			/* HACK : Assumes one node and one end point per child */
+			for(child =0; child < nodeList[0].ChildCount; child++)
+			{
+				if(nodeList[0].childs[child].ChildAddr == msg->NwkAddr)
+					nodeList[0].childs[child].active_ep = msg->ActiveEPList[0];
+			}
 
 		}
 		consolePrint("\n");
