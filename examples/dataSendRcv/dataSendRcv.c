@@ -495,9 +495,10 @@ static uint8_t setNVChanList(uint32_t chanList)
 uint8_t dType;
 static int32_t startNetwork(void)
 {
-	char cDevType;
-	uint8_t devType;
 	int32_t status;
+#if 0
+	uint8_t devType;
+	char cDevType;
 	uint8_t newNwk = 0;
 	char sCh[128];
 
@@ -521,7 +522,9 @@ static int32_t startNetwork(void)
 			consolePrint("Incorrect input please type y or n\n");
 		}
 	} while (sCh[0] != 'y' && sCh[0] != 'Y' && sCh[0] != 'n' && sCh[0] != 'N');
-
+#endif
+	/* New network is started always */
+	status = setNVStartup(ZCD_STARTOPT_CLEAR_STATE | ZCD_STARTOPT_CLEAR_CONFIG);
 	if (status != MT_RPC_SUCCESS)
 	{
 		dbg_print(PRINT_LEVEL_WARNING, "network start failed\n");
@@ -534,6 +537,31 @@ static int32_t startNetwork(void)
 	//flush the rsp
 	rpcWaitMqClientMsg(5000);
 
+	/* Make coordinator always */
+	status = setNVDevType(DEVICETYPE_COORDINATOR);
+	if (status != MT_RPC_SUCCESS)
+	{
+		dbg_print(PRINT_LEVEL_WARNING, "setNVDevType failed\n");
+		return 0;
+	}
+
+	//Select random PAN ID for Coord and join any PAN for RTR/ED
+	status = setNVPanID(0xFFFF);
+	if (status != MT_RPC_SUCCESS)
+	{
+		dbg_print(PRINT_LEVEL_WARNING, "setNVPanID failed\n");
+		return -1;
+	}
+
+	/* Select channel 11 always */
+	status = setNVChanList(1 << 11);
+	if (status != MT_RPC_SUCCESS)
+	{
+		dbg_print(PRINT_LEVEL_INFO, "setNVPanID failed\n");
+		return -1;
+	}
+
+#if 0
 	if (newNwk)
 	{
 #ifndef CC26xx
@@ -584,6 +612,7 @@ static int32_t startNetwork(void)
 		}
 
 	}
+#endif
 
 	registerAf();
 	consolePrint("EndPoint: 1\n");
@@ -612,10 +641,13 @@ static int32_t startNetwork(void)
 	{
 		status = rpcWaitMqClientMsg(5000);
 
+#if 0
 		if (((devType == DEVICETYPE_COORDINATOR) && (devState == DEV_ZB_COORD))
 		        || ((devType == DEVICETYPE_ROUTER) && (devState == DEV_ROUTER))
 		        || ((devType == DEVICETYPE_ENDDEVICE)
 		                && (devState == DEV_END_DEVICE)))
+#endif
+		if(devState == DEV_ZB_COORD)
 		{
 			break;
 		}
