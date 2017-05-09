@@ -859,7 +859,7 @@ void* appProcess(void *argument)
 	nvWrite.Value[0] = 1;
 	status = sysOsalNvWrite(&nvWrite);
 
-	char cmd[128];
+	//char cmd[128];
 	int attget;
 
 	while (quit == 0)
@@ -868,15 +868,28 @@ void* appProcess(void *argument)
 		initDone = 0;
 		displayDevices();
 		DataRequestFormat_t DataRequest;
-		consolePrint("Enter DstAddr here:\n");
-		consoleGetLine(cmd, 128);
-		sscanf(cmd, "%x", &attget);
-		DataRequest.DstAddr = (uint16_t) attget;
+		/* HACK : On CHANGE cmd from server, sets addr and ep of child[o] as dst*/
+		if(nodeList[0].ChildCount == 1)
+		{
+			attget = (int)nodeList[0].childs[0].ChildAddr;
+			DataRequest.DstAddr = (uint16_t) attget;
+			attget = (int)nodeList[0].childs[0].active_ep;
+			DataRequest.DstEndpoint = (uint8_t) attget;
+		}
+#if 0
+		else 
+		{
+			consolePrint("Enter DstAddr here:\n");
+			consoleGetLine(cmd, 128);
+			sscanf(cmd, "%x", &attget);
+			DataRequest.DstAddr = (uint16_t) attget;
 
-		consolePrint("Enter DstEndpoint here:\n");
-		consoleGetLine(cmd, 128);
-		sscanf(cmd, "%x", &attget);
-		DataRequest.DstEndpoint = (uint8_t) attget;
+			consolePrint("Enter DstEndpoint here:\n");
+			consoleGetLine(cmd, 128);
+			sscanf(cmd, "%x", &attget);
+			DataRequest.DstEndpoint = (uint8_t) attget;
+		}
+#endif
 
 		DataRequest.SrcEndpoint = 1;
 
