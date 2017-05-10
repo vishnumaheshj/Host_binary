@@ -43,7 +43,9 @@ extern "C"
 {
 #endif
 
-#define consolePrint printf
+//#define consolePrint printf
+#define consolePrint(...) \
+		do { fprintf(stderr,  __VA_ARGS__); } while (0)
 #define consoleClearLn(); printf("%c[2K", 27);
 #define consoleFlush(); fflush(stdout);
 
