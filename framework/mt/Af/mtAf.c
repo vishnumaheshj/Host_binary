@@ -593,6 +593,7 @@ void afProcess(uint8_t *rpcBuff, uint8_t rpcLen)
 	//process the synchronous SRSP from SREQ
 	if ((rpcBuff[0] & MT_RPC_CMD_TYPE_MASK) == MT_RPC_CMD_SRSP)
 	{
+		printf("afProcess: MT_RPC_CMD_SRSP.\n");
 		processSrsp(rpcBuff, rpcLen);
 	}
 	else
@@ -601,23 +602,29 @@ void afProcess(uint8_t *rpcBuff, uint8_t rpcLen)
 		switch (rpcBuff[1])
 		{
 		case MT_AF_DATA_CONFIRM:
+			printf("afProcess: MT_AF_DATA_CONFIRM.\n");
 			dbg_print(PRINT_LEVEL_VERBOSE, "afProcess: MT_AF_DATA_CONFIRM\n");
 			processDataConfirm(rpcBuff, rpcLen);
 			break;
 		case MT_AF_INCOMING_MSG:
+			printf("afProcess: MT_AF_INCOMING_MSG.\n");
+			printf("Incoming Data !!!!!!!!!!!!!!!!\n");
 			dbg_print(PRINT_LEVEL_VERBOSE, "afProcess: MT_AF_INCOMING_MSG\n");
 			processIncomingMsg(rpcBuff, rpcLen);
 			break;
 		case MT_AF_INCOMING_MSG_EXT:
+			printf("afProcess: MT_AF_INCOMING_MSG_EXT.\n");
 			dbg_print(PRINT_LEVEL_VERBOSE,
 			        "afProcess: MT_AF_INCOMING_MSG_EXT\n");
 			processIncomingMsgExt(rpcBuff, rpcLen);
 			break;
 		case MT_AF_REFLECT_ERROR:
+			printf("afProcess: MT_AF_INCOMING_MSG_EXT.\n");
 			dbg_print(PRINT_LEVEL_VERBOSE, "afProcess: MT_AF_REFLECT_ERROR\n");
 			processReflectError(rpcBuff, rpcLen);
 			break;
 		default:
+			printf("afProcess: NOT HANDLED.\n");
 			dbg_print(PRINT_LEVEL_WARNING,
 			        "processRpcAf: CMD0:%x, CMD1:%x, not handled\n", rpcBuff[0],
 			        rpcBuff[1]);
