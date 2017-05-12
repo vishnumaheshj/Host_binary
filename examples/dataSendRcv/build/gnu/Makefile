@@ -8,7 +8,7 @@ CC= gcc
 #CC=/usr/local/angstrom/arm/bin/arm-angstrom-linux-gnueabi-gcc
 
 CFLAGS= -c -Wall -g -std=gnu99
-LIBS = -lpthread -lrt
+LIBS = -lpthread
 DEFS += -DxCC26xx
 PROJ_DIR=
 

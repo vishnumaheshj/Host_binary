@@ -58,6 +58,7 @@
 #include "rpcTransport.h"
 #include "mtParser.h"
 #include "dbgPrint.h"
+#include "sem_timedwait.h"
 
 /*********************************************************************
  * MACROS
@@ -490,7 +491,7 @@ uint8_t rpcSendFrame(uint8_t cmd0, uint8_t cmd1, uint8_t *payload,
 		        expectedSrspCmdId);
 
 		//Wait for the SRSP
-		status = sem_timedwait(&srspSem, &srspTimeOut);
+		status = sem_timedwait_mach(&srspSem, &srspTimeOut); // Ported to osx
 		if (status == -1)
 		{
 			dbg_print(PRINT_LEVEL_WARNING,
