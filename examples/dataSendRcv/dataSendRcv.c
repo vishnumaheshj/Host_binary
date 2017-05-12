@@ -762,7 +762,7 @@ void* appProcess(void *argument)
 	key_t          ShmReadKEY, ShmWriteKEY;
 	int            ShmReadID, ShmWriteID;
     
-	ShmReadKEY = ftok("/home", 'x');
+	ShmReadKEY = ftok("/home", 'a');
 	ShmReadID = shmget(ShmReadKEY, sizeof(struct Memory), 0666);
 	if (ShmReadID < 0) {
         	printf("*** shmget error (client) ***\n");
@@ -773,7 +773,7 @@ void* appProcess(void *argument)
         	printf("*** shmat error (client) ***\n");
 	}   
     
-	ShmWriteKEY = ftok("/home", 'y');
+	ShmWriteKEY = ftok("/home", 'b');
 	ShmWriteID = shmget(ShmWriteKEY, sizeof(struct Memory), 0666);
 	if (ShmWriteID < 0) {
         	printf("*** shmget error (client) ***\n");
