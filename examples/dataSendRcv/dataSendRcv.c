@@ -850,7 +850,7 @@ void* appProcess(void *argument)
 			while (ShmReadPTR->status != FILLED)
 				continue;
 
-			memset(DataRequest.Data,0,50);
+			memset(DataRequest.Data, 0, 128);
 			DataRequest.Len = sbGetDataFromShmem(DataRequest.Data, ShmReadPTR->data);
 			ShmReadPTR->status = TAKEN;
 

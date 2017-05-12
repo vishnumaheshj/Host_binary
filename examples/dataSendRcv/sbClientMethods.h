@@ -33,8 +33,8 @@ static int sbGetDataFromShmem(char *serverCmd, char *data)
 	}
 	else
 	{
-		memcpy(serverCmd, data, 50);
-		return 50;
+		memcpy(serverCmd, data, 128);
+		return 128;
 	}
 }
 
@@ -51,7 +51,7 @@ static int sbSentDataToShmem(char *data, struct Memory *ShmWritePTR)
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_RSP)
 		dataSize = SB_STATE_CHANGE_RSP_LEN;
 	else
-		dataSize = 256;
+		dataSize = 128;
 
 	memset(ShmWritePTR->data, 0, 256);
 	memcpy(ShmWritePTR->data, data, dataSize);
