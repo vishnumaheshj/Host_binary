@@ -226,7 +226,6 @@ int32_t rpcWaitMqClientMsg(uint32_t timeout)
 	gettimeofday(&aftTime, NULL);
 	if (rpcLen != -1)
 	{
-		printf("RPC Message found.!");
 		mBefTime = befTime.tv_sec * 1000;
 		mBefTime += befTime.tv_usec / 1000;
 		mAftTime = aftTime.tv_sec * 1000;
@@ -240,7 +239,6 @@ int32_t rpcWaitMqClientMsg(uint32_t timeout)
 	}
 	else
 	{
-		printf("RPC Message NOT found.!");
 		dbg_print(PRINT_LEVEL_INFO, "rpcWaitMqClientMsg: Timed out [%d] - %s\n",
 		        rpcLen, strerror(errno));
 		return -1;

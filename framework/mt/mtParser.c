@@ -87,24 +87,20 @@ void mtProcess(uint8_t *rpcBuff, uint8_t rpcLen)
     {
     case MT_RPC_SYS_ZDO:
         //process ZDO RPC's in the ZDO module
-	printf("ZDO message.\n");
         zdoProcess(rpcBuff, rpcLen);
         break;
 
     case MT_RPC_SYS_SYS:
-	printf("SYS message.\n");
         //process SYS RPC's in the Sys module
         sysProcess(rpcBuff, rpcLen);
         break;
 
     case MT_RPC_SYS_AF:
-	printf("AF message.\n");
         //process SYS RPC's in the Sys module
         afProcess(rpcBuff, rpcLen);
         break;
 
     case MT_RPC_SYS_SAPI:
-	printf("SAPI message.\n");
         //process SYS RPC's in the Sys module
         sapiProcess(rpcBuff, rpcLen);
         break;
