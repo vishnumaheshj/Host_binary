@@ -44,6 +44,7 @@
 #include <stdint.h>
 #include <semaphore.h>
 #include "queue.h"
+#include "sem_timedwait.h"
 
 static void addToHead(llq_t *hndl, char *data, int length)
 {
@@ -105,8 +106,8 @@ static void addToTail(llq_t *hndl, char *data, int length)
 void llq_open(llq_t *hndl)
 {
 	hndl->head = hndl->tail = NULL;
-	sem_init(&(hndl->llqAccessSem), 0, 1);
-	sem_init(&(hndl->llqCountSem), 0, 0);
+	//sem_init(&(hndl->llqAccessSem), 0, 1);
+	//sem_init(&(hndl->llqCountSem), 0, 0);
 }
 
 void llq_close(llq_t *hndl)
@@ -134,7 +135,7 @@ int llq_timedreceive(llq_t *hndl, char *buffer, int maxLength,
 	if (timeout != NULL)
 	{
 		//wait for a message or timeout
-		sepmRnt = sem_timedwait(&(hndl->llqCountSem), timeout);
+		sepmRnt = sem_timedwait_mach(&(hndl->llqCountSem), timeout); // Ported to osx
 	}
 	else
 	{
