@@ -4,12 +4,12 @@
 #include "switchboard.h"
 
 #define  NOT_READY  -1
-#define  FILLED     0
-#define  TAKEN      1
+#define  FILLED     1
+#define  TAKEN      0
 
 struct Memory {
 	int  status;
-	char data[50];
+	char data[256];
 };
 
 struct Memory  *ShmReadPTR,*ShmWritePTR;

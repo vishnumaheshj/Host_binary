@@ -784,6 +784,7 @@ void* appProcess(void *argument)
         	printf("*** shmat error (client) ***\n");
 	}
 
+	memset(ShmWritePTR, NOT_READY, 256);
 
 	//Flush all messages from the que
 	do
