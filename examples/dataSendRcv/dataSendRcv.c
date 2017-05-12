@@ -56,6 +56,7 @@
 #include "dbgPrint.h"
 #include "hostConsole.h"
 #include "switchboard.h"
+#include "sbClientMethods.h"
 
 /*********************************************************************
  * MACROS
@@ -853,8 +854,6 @@ void* appProcess(void *argument)
 
 		while (1)
 		{
-			uint8_t *data;
-			char server_cmd[50];
 			//initDone = 0;
 
 			consolePrint(
@@ -863,25 +862,11 @@ void* appProcess(void *argument)
 			//initDone = 1;
 			while (ShmPTR->status != FILLED)
 				continue;
+
+			memset(DataRequest.Data,0,50);
+			DataRequest.Len = sbGetDataFromShmem(DataRequest.Data, ShmPTR->data);
 			ShmPTR->status = TAKEN;
-			memset(server_cmd,0,50);
-			memcpy(server_cmd, ShmPTR->data, strlen(ShmPTR->data));
-			fprintf(stderr, "Command received %s\n", server_cmd);
-			if (strcmp(server_cmd, "CHANGE") == 0)
-			{
-				break;
-			}
-			else if (strcmp(server_cmd, "QUIT") == 0)
-			{
-				quit = 1;
-				break;
-			}
-			else
-			{
-				data = (uint8_t*) server_cmd;
-				memcpy(DataRequest.Data, data, sizeof(sbMessage_t));
-				DataRequest.Len = 6;
-			}
+
 			initDone = 0;
 			afDataRequest(&DataRequest);
 			rpcWaitMqClientMsg(500);
