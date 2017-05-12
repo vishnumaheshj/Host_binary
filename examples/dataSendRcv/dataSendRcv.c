@@ -396,15 +396,7 @@ static uint8_t mtAfDataConfirmCb(DataConfirmFormat_t *msg)
 }
 static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
-
-	consolePrint(
-	        "\nIncoming Message from Endpoint 0x%02X and Address 0x%04X:\n",
-	        msg->SrcEndpoint, msg->SrcAddr);
-	msg->Data[msg->Len] = '\0';
-	consolePrint("%s\n", (char*) msg->Data);
-	consolePrint(
-	        "\nEnter message to send or type CHANGE to change the destination \nor QUIT to exit:\n");
-
+	sbSentDataToShmem((char *)msg, ShmWritePTR);
 	return 0;
 }
 
@@ -762,42 +754,41 @@ void fillData(char *buf)
     buf[6] = '\0';
 }
 
-#define  NOT_READY  -1
-#define  FILLED     0
-#define  TAKEN      1
-
-struct Memory {
-        int  status;
-        char data[50];
-};
-
 void* appProcess(void *argument)
 {
 	int32_t status;
 	uint32_t quit = 0;
 
-	key_t          ShmKEY;
-	int            ShmID;
-	struct Memory  *ShmPTR;
+	key_t          ShmReadKEY, ShmWriteKEY;
+	int            ShmReadID, ShmWriteID;
     
-	ShmKEY = ftok("/home", 'x');
-	ShmID = shmget(ShmKEY, sizeof(struct Memory), 0666);
-	if (ShmID < 0) {
+	ShmReadKEY = ftok("/home", 'x');
+	ShmReadID = shmget(ShmReadKEY, sizeof(struct Memory), 0666);
+	if (ShmReadID < 0) {
         	printf("*** shmget error (client) ***\n");
 	}   
     
-	ShmPTR = (struct Memory *) shmat(ShmID, NULL, 0); 
-	if (ShmPTR == NULL) {
+	ShmReadPTR = (struct Memory *) shmat(ShmReadID, NULL, 0);
+	if (ShmReadPTR == NULL) {
         	printf("*** shmat error (client) ***\n");
 	}   
     
+	ShmWriteKEY = ftok("/home", 'y');
+	ShmWriteID = shmget(ShmWriteKEY, sizeof(struct Memory), 0666);
+	if (ShmWriteID < 0) {
+        	printf("*** shmget error (client) ***\n");
+	}
 
+	ShmWritePTR = (struct Memory *) shmat(ShmWriteID, NULL, 0);
+	if (ShmWritePTR == NULL) {
+        	printf("*** shmat error (client) ***\n");
+	}
 
 
 	//Flush all messages from the que
 	do
 	{
-		status = rpcWaitMqClientMsg(50);
+		status = rpcWaitMqClientMsg(256);
 	} while (status != -1);
 
 	devState = DEV_HOLD;
@@ -855,17 +846,13 @@ void* appProcess(void *argument)
 		while (1)
 		{
 			//initDone = 0;
-
-			consolePrint(
-			        "Enter message to send or type CHANGE to change the destination\n");
-			consolePrint("or QUIT to exit\n");
 			//initDone = 1;
-			while (ShmPTR->status != FILLED)
+			while (ShmReadPTR->status != FILLED)
 				continue;
 
 			memset(DataRequest.Data,0,50);
-			DataRequest.Len = sbGetDataFromShmem(DataRequest.Data, ShmPTR->data);
-			ShmPTR->status = TAKEN;
+			DataRequest.Len = sbGetDataFromShmem(DataRequest.Data, ShmReadPTR->data);
+			ShmReadPTR->status = TAKEN;
 
 			initDone = 0;
 			afDataRequest(&DataRequest);
@@ -875,7 +862,8 @@ void* appProcess(void *argument)
 
 	}
 
-	shmdt((void *) ShmPTR);
+	shmdt((void *) ShmReadPTR);
+	shmdt((void *) ShmWritePTR);
 	return 0;
 }
 
