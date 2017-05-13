@@ -396,7 +396,7 @@ static uint8_t mtAfDataConfirmCb(DataConfirmFormat_t *msg)
 }
 static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
-	sbSentDataToShmem((char *)msg, ShmWritePTR);
+	sbSentDataToShmem((char *)(msg->Data), ShmWritePTR);
 	return 0;
 }
 
