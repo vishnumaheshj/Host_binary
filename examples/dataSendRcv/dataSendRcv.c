@@ -74,6 +74,7 @@
 devStates_t devState = DEV_HOLD;
 uint8_t gSrcEndPoint = 1;
 uint8_t gDstEndPoint = 1;
+uint16_t NewDeviceAddr = 0;
 
 /***********************************************************************/
 
@@ -371,6 +372,7 @@ static uint8_t mtZdoEndDeviceAnnceIndCb(EndDeviceAnnceIndFormat_t *msg)
 	ActiveEpReqFormat_t actReq;
 	actReq.DstAddr = msg->NwkAddr;
 	actReq.NwkAddrOfInterest = msg->NwkAddr;
+	NewDeviceAddr = msg->NwkAddr;
 
 	consolePrint("\nNew device joined network.\n");
 	zdoActiveEpReq(&actReq);
@@ -798,6 +800,7 @@ void* appProcess(void *argument)
 	if (status != -1)
 	{
 		consolePrint("Network up\n\n");
+		sbSentDeviceReady();
 	}
 	else
 	{
@@ -822,15 +825,11 @@ void* appProcess(void *argument)
 		initDone = 0;
 		displayDevices();
 		DataRequestFormat_t DataRequest;
-		consolePrint("Enter DstAddr here:\n");
-		consoleGetLine(cmd, 128);
-		sscanf(cmd, "%x", &attget);
-		DataRequest.DstAddr = (uint16_t) attget;
+		consolePrint("Waiting for device to join");
+		while (!NewDeviceAddr) continue;
+		DataRequest.DstAddr = NewDeviceAddr;
 
-		consolePrint("Enter DstEndpoint here:\n");
-		consoleGetLine(cmd, 128);
-		sscanf(cmd, "%x", &attget);
-		DataRequest.DstEndpoint = (uint8_t) attget;
+		DataRequest.DstEndpoint = 8;
 
 		DataRequest.SrcEndpoint = 1;
 

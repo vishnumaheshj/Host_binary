@@ -8,11 +8,15 @@ typedef unsigned char uint8;
 #define SB_STATE_CHANGE_REQ 0x03 
 #define SB_STATE_CHANGE_RSP 0x04
 
+#define SB_DEVICE_READY_NTF 0x05
+
 //Message Lengths
 #define SB_BOARD_INFO_REQ_LEN   (2)
 #define SB_BOARD_INFO_RSP_LEN   (10)
 #define SB_STATE_CHANGE_REQ_LEN (6) 
 #define SB_STATE_CHANGE_RSP_LEN (6)
+
+#define SB_DEVICE_READY_NTF_LEN (2)
 
 typedef struct
 {
@@ -94,12 +98,18 @@ typedef struct
 
 typedef struct
 {
+	switchBoardType_t sbType;
+} sDevInfo_t;
+
+typedef struct
+{
   sbMessageHdr_t hdr;
   union
   {
     sBoard_t boardData;
     sInfoReq_t infoReqData;
     sInfoRsp_t infoRspData;
+    sDevInfo_t devInfo;
   } data;
 } sbMessage_t;
 

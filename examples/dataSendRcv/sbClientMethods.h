@@ -50,6 +50,8 @@ static int sbSentDataToShmem(char *data, struct Memory *ShmWritePTR)
 		dataSize = SB_BOARD_INFO_RSP_LEN;
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_RSP)
 		dataSize = SB_STATE_CHANGE_RSP_LEN;
+	else if (sMsg->hdr.message_type == SB_DEVICE_READY_NTF)
+		dataSize = SB_DEVICE_READY_NTF_LEN;
 	else
 		dataSize = 128;
 
@@ -57,5 +59,13 @@ static int sbSentDataToShmem(char *data, struct Memory *ShmWritePTR)
 	memcpy(ShmWritePTR->data, data, dataSize);
 	ShmWritePTR->status = FILLED;
 	return 0;
+}
+
+static int sbSentDeviceReady()
+{
+	sbMessage_t Msg;
+	Msg.hdr.message_type = SB_DEVICE_READY_NTF;
+	Msg.data.devInfo.sbType.type = SB_TYPE_4X4;
+	sbSentDataToShmem((char *)&Msg, ShmWritePTR);
 }
 #endif
