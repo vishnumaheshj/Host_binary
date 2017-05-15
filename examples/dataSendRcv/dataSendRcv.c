@@ -219,11 +219,18 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 
 	if (!alreadyJoined)
 	{
+		FILE *fp;
 		//A Lock may be required.
 		nodeInfoList[joinedNodesCount].DevInfo.Index = joinedNodesCount + 1;
 		nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr = EDAnnce->IEEEAddr;
 		nodeInfoList[joinedNodesCount].DevInfo.NwkAddr = EDAnnce->NwkAddr;
 		nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_JUST_JOINED;
+		fp = fopen("JoinedDevices", 'a');
+		fprintf("%u %x %lx %u\n", nodeInfoList[joinedNodesCount].DevInfo.Index,
+				nodeInfoList[joinedNodesCount].DevInfo.NwkAddr,
+				nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr,
+				nodeInfoList[joinedNodesCount].AppInfo.EndPoint);
+		fclose(fp);
 		joinedNodesCount++;
 		return 0;
 	}
@@ -278,6 +285,27 @@ static int updateNodeInfoLqi(MgmtLqiRspFormat_t *LQIRsp)
 	}
 
 	return 2;
+}
+
+static int loadDeviceInfo()
+{
+	FILE *fp;
+	uint8_t index, endpoint;
+	uint16_t nwkaddr;
+	uint64_t ieeeaddr;
+	int i = 0;
+
+	fp = fopen("JoinedDevices", 'r');
+	while(!feof(fp))
+	{
+		fscanf("%u %x %lx %u\n", index, nwkaddr, ieeeaddr, endpoint);
+		nodeInfoList[i].DevInfo.Index = index;
+		nodeInfoList[i].DevInfo.NwkAddr = nwkaddr;
+		nodeInfoList[i].DevInfo.IEEEAddr = ieeeaddr;
+		nodeInfoList[i].AppInfo.EndPoint = endpoint;
+		nodeInfoList[i].AppInfo.ActiveNow = NS_NOT_REACHABLE;
+	}
+	fclose(fp);
 }
 /********************************************************************
  * START OF SYS CALL BACK FUNCTIONS
@@ -899,6 +927,7 @@ void* appProcess(void *argument)
 	}
 
 	memset(ShmWritePTR, NOT_READY, 256);
+	loadDeviceInfo();
 
 	//Flush all messages from the que
 	do
