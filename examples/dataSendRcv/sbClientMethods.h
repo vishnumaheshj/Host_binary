@@ -58,14 +58,16 @@ static int sbSentDataToShmem(char *data, struct Memory *ShmWritePTR)
 	memset(ShmWritePTR->data, 0, 256);
 	memcpy(ShmWritePTR->data, data, dataSize);
 	ShmWritePTR->status = FILLED;
-	return 0;
+	return dataSize;
 }
 
 static int sbSentDeviceReady()
 {
+    int ret;
 	sbMessage_t Msg;
 	Msg.hdr.message_type = SB_DEVICE_READY_NTF;
 	Msg.data.devInfo.sbType.type = SB_TYPE_4X4;
-	sbSentDataToShmem((char *)&Msg, ShmWritePTR);
+	ret = sbSentDataToShmem((char *)&Msg, ShmWritePTR);
+    printf("Init data sent of size:%d\n", ret);
 }
 #endif

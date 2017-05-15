@@ -74,7 +74,7 @@
 devStates_t devState = DEV_HOLD;
 uint8_t gSrcEndPoint = 1;
 uint8_t gDstEndPoint = 1;
-uint16_t NewDeviceAddr = 0;
+uint16_t NewDeviceAddr = 0x853b;
 
 /***********************************************************************/
 
@@ -698,6 +698,7 @@ static void displayDevices(void)
 		consolePrint("\n");
 
 	}
+	consolePrint("Done\n");
 }
 /*********************************************************************
  * INTERFACE FUNCTIONS
@@ -799,8 +800,9 @@ void* appProcess(void *argument)
 	status = startNetwork();
 	if (status != -1)
 	{
-		consolePrint("Network up\n\n");
-		sbSentDeviceReady();
+        consolePrint("Network up\n\n");
+        sbSentDeviceReady();
+        consolePrint("Sent device ready.\n");
 	}
 	else
 	{
@@ -825,8 +827,13 @@ void* appProcess(void *argument)
 		initDone = 0;
 		displayDevices();
 		DataRequestFormat_t DataRequest;
-		consolePrint("Waiting for device to join");
-		while (!NewDeviceAddr) continue;
+
+		consolePrint("Waiting for device to join\n");
+	
+        while (!NewDeviceAddr) continue;
+
+        printf("Device:%x\n", NewDeviceAddr);
+        
 		DataRequest.DstAddr = NewDeviceAddr;
 
 		DataRequest.DstEndpoint = 8;
