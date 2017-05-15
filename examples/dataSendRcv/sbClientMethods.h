@@ -14,8 +14,9 @@ struct Memory {
 
 struct Memory  *ShmReadPTR,*ShmWritePTR;
 
-static int sbGetDataFromShmem(char *serverCmd, char *data)
+static int sbGetDataFromShmem(char *serverSpace)
 {
+	char *data = ShmReadPTR->data;
 	if (data == NULL)
 		return -1;
 
@@ -23,22 +24,22 @@ static int sbGetDataFromShmem(char *serverCmd, char *data)
 
 	if (sMsg->hdr.message_type == SB_BOARD_INFO_REQ)
 	{
-		memcpy(serverCmd, data, SB_BOARD_INFO_REQ_LEN);
+		memcpy(serverSpace, data, SB_BOARD_INFO_REQ_LEN);
 		return SB_BOARD_INFO_REQ_LEN;
 	}
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_REQ)
 	{
-		memcpy(serverCmd, data, SB_STATE_CHANGE_REQ_LEN);
+		memcpy(serverSpace, data, SB_STATE_CHANGE_REQ_LEN);
 		return SB_STATE_CHANGE_REQ_LEN;
 	}
 	else
 	{
-		memcpy(serverCmd, data, 128);
+		memcpy(serverSpace, data, 128);
 		return 128;
 	}
 }
 
-static int sbSentDataToShmem(char *data, struct Memory *ShmWritePTR)
+static int sbSentDataToShmem(char *data)
 {
 	int dataSize;
 	sbMessage_t *sMsg = (sbMessage_t *)data;
@@ -64,10 +65,11 @@ static int sbSentDataToShmem(char *data, struct Memory *ShmWritePTR)
 static int sbSentDeviceReady()
 {
     int ret;
-	sbMessage_t Msg;
-	Msg.hdr.message_type = SB_DEVICE_READY_NTF;
-	Msg.data.devInfo.sbType.type = SB_TYPE_4X4;
-	ret = sbSentDataToShmem((char *)&Msg, ShmWritePTR);
-    printf("Init data sent of size:%d\n", ret);
+    char buffer[128];
+	sbMessage_t *Msg = (sbMessage_t *)buffer;
+	Msg->hdr.message_type = SB_DEVICE_READY_NTF;
+	Msg->data.devInfo.sbType.type = SB_TYPE_4X4;
+	ret = sbSentDataToShmem((char *)Msg);
+	return ret;
 }
 #endif

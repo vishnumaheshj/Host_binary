@@ -173,6 +173,112 @@ typedef struct
 Node_t nodeList[64];
 uint8_t nodeCount = 0;
 
+typedef struct
+{
+	uint8_t Index;
+	uint8_t DeviceType;
+	uint16_t NwkAddr;
+	uint64_t IEEEAddr;
+} DeviceInfo_t;
+
+typedef struct
+{
+	uint8_t EndPoint;
+	uint8_t ActiveNow;
+} AppInfo_t;
+
+typedef struct
+{
+	DeviceInfo_t DevInfo;
+	AppInfo_t AppInfo;
+} NodeInfo_t;
+
+NodeInfo_t nodeInfoList[64];
+uint8_t joinedNodesCount = 0;
+
+/********************************************************************
+ * START OF APP SPECIFIC FUNCTIONS
+ */
+// Node States
+#define NS_JUST_JOINED     0x1
+#define NS_EP_ACTIVE       0x2
+#define NS_EP_REACHABLE    0x3
+#define NS_NOT_REACHABLE   0x4
+
+static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
+{
+	int i;
+	int alreadyJoined = 0;
+	for (i = 0; i < joinedNodesCount; i++)
+	{
+		if (nodeInfoList[i].DevInfo.IEEEAddr == EDAnnce->IEEEAddr)
+		{
+			alreadyJoined = 1;
+		}
+	}
+
+	if (!alreadyJoined)
+	{
+		//A Lock may be required.
+		nodeInfoList[joinedNodesCount].DevInfo.Index = joinedNodesCount + 1;
+		nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr = EDAnnce->IEEEAddr;
+		nodeInfoList[joinedNodesCount].DevInfo.NwkAddr = EDAnnce->NwkAddr;
+		nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_JUST_JOINED;
+		joinedNodesCount++;
+		return 0;
+	}
+
+	return 1;
+}
+
+static int updateNodeInfoEpActive(ActiveEpRspFormat_t *AERsp)
+{
+	int i;
+	for (i = 0; i < joinedNodesCount; i++)
+	{
+		if (nodeInfoList[i].DevInfo.NwkAddr == AERsp->NwkAddr)
+		{
+			if (AERsp->ActiveEPCount == 1)
+			{
+				nodeInfoList[joinedNodesCount].AppInfo.EndPoint = AERsp->ActiveEPList[0];
+				nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_EP_ACTIVE;
+				return 0;
+			}
+			else
+			{
+				return 1;
+			}
+		}
+	}
+
+	return 2;
+}
+
+static int updateNodeInfoLqi(MgmtLqiRspFormat_t *LQIRsp)
+{
+	int i, j;
+	for (i = 0; i < LQIRsp->NeighborLqiListCount; i++)
+	{
+		for (j = 0; j < joinedNodesCount; j++)
+		{
+			if (nodeInfoList[j].DevInfo.IEEEAddr == LQIRsp->NeighborLqiList[i].ExtendedAddress)
+			{
+				nodeInfoList[j].AppInfo.ActiveNow = NS_EP_REACHABLE;
+				if (nodeInfoList[j].DevInfo.NwkAddr != LQIRsp->NeighborLqiList[i].NetworkAddress)
+				{
+					nodeInfoList[j].DevInfo.NwkAddr = LQIRsp->NeighborLqiList[i].NetworkAddress;
+					return 1;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+		}
+	}
+
+	return 2;
+}
 /********************************************************************
  * START OF SYS CALL BACK FUNCTIONS
  */
@@ -304,6 +410,8 @@ static uint8_t mtZdoMgmtLqiRspCb(MgmtLqiRspFormat_t *msg)
 	MgmtLqiReqFormat_t req;
 	if (msg->Status == MT_RPC_SUCCESS)
 	{
+		updateNodeInfoLqi(msg);
+
 		nodeList[nodeCount].NodeAddr = msg->SrcAddr;
 		nodeList[nodeCount].Type = (msg->SrcAddr == 0 ?
 		DEVICETYPE_COORDINATOR :
@@ -356,6 +464,7 @@ static uint8_t mtZdoActiveEpRspCb(ActiveEpRspFormat_t *msg)
 			consolePrint("0x%02X\t", msg->ActiveEPList[i]);
 
 		}
+		updateNodeInfoEpActive(msg);
 		consolePrint("\n");
 	}
 	else
@@ -375,6 +484,8 @@ static uint8_t mtZdoEndDeviceAnnceIndCb(EndDeviceAnnceIndFormat_t *msg)
 	NewDeviceAddr = msg->NwkAddr;
 
 	consolePrint("\nNew device joined network.\n");
+	addNodeInfo(msg);
+
 	zdoActiveEpReq(&actReq);
 	return 0;
 }
@@ -398,7 +509,7 @@ static uint8_t mtAfDataConfirmCb(DataConfirmFormat_t *msg)
 }
 static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
-	sbSentDataToShmem((char *)(msg->Data), ShmWritePTR);
+	sbSentDataToShmem((char *)(msg->Data));
 	return 0;
 }
 
@@ -802,7 +913,6 @@ void* appProcess(void *argument)
 	{
         consolePrint("Network up\n\n");
         sbSentDeviceReady();
-        consolePrint("Sent device ready.\n");
 	}
 	else
 	{
@@ -818,9 +928,6 @@ void* appProcess(void *argument)
 	nvWrite.Value[0] = 1;
 	status = sysOsalNvWrite(&nvWrite);
 
-	char cmd[128];
-	int attget;
-
 	while (quit == 0)
 	{
 		nodeCount = 0;
@@ -832,7 +939,7 @@ void* appProcess(void *argument)
 	
         while (!NewDeviceAddr) continue;
 
-        printf("Device:%x\n", NewDeviceAddr);
+        printf(" Connected to:0x%x\n", NewDeviceAddr);
         
 		DataRequest.DstAddr = NewDeviceAddr;
 
@@ -853,12 +960,12 @@ void* appProcess(void *argument)
 		while (1)
 		{
 			//initDone = 0;
-			//initDone = 1;
+			initDone = 1;
 			while (ShmReadPTR->status != FILLED)
 				continue;
 
 			memset(DataRequest.Data, 0, 128);
-			DataRequest.Len = sbGetDataFromShmem(DataRequest.Data, ShmReadPTR->data);
+			DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
 			ShmReadPTR->status = TAKEN;
 
 			initDone = 0;
