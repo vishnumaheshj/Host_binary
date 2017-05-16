@@ -200,10 +200,10 @@ uint8_t joinedNodesCount = 0;
  * START OF APP SPECIFIC FUNCTIONS
  */
 // Node States
-#define NS_JUST_JOINED     0x1
-#define NS_EP_ACTIVE       0x2
-#define NS_EP_REACHABLE    0x3
-#define NS_NOT_REACHABLE   0x4
+#define NS_JUST_JOINED          0x1
+#define NS_EP_ACTIVE            0x2
+#define NS_EP_PARENT_REACHED    0x3
+#define NS_NOT_REACHABLE        0x4
 
 static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 {
@@ -225,11 +225,10 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 		nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr = EDAnnce->IEEEAddr;
 		nodeInfoList[joinedNodesCount].DevInfo.NwkAddr = EDAnnce->NwkAddr;
 		nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_JUST_JOINED;
-		fp = fopen("JoinedDevices", 'a');
+		fp = fopen("JoinedDevices", "a");
 		fprintf("%u %x %lx %u\n", nodeInfoList[joinedNodesCount].DevInfo.Index,
 				nodeInfoList[joinedNodesCount].DevInfo.NwkAddr,
-				nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr,
-				nodeInfoList[joinedNodesCount].AppInfo.EndPoint);
+				nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr);
 		fclose(fp);
 		joinedNodesCount++;
 		return 0;
@@ -270,7 +269,10 @@ static int updateNodeInfoLqi(MgmtLqiRspFormat_t *LQIRsp)
 		{
 			if (nodeInfoList[j].DevInfo.IEEEAddr == LQIRsp->NeighborLqiList[i].ExtendedAddress)
 			{
-				nodeInfoList[j].AppInfo.ActiveNow = NS_EP_REACHABLE;
+				if (nodeInfoList[j].AppInfo.ActiveNow != NS_EP_ACTIVE)
+				{
+					nodeInfoList[j].AppInfo.ActiveNow = NS_EP_PARENT_REACHED;
+				}
 				if (nodeInfoList[j].DevInfo.NwkAddr != LQIRsp->NeighborLqiList[i].NetworkAddress)
 				{
 					nodeInfoList[j].DevInfo.NwkAddr = LQIRsp->NeighborLqiList[i].NetworkAddress;
@@ -290,19 +292,18 @@ static int updateNodeInfoLqi(MgmtLqiRspFormat_t *LQIRsp)
 static int loadDeviceInfo()
 {
 	FILE *fp;
-	uint8_t index, endpoint;
+	uint8_t index;
 	uint16_t nwkaddr;
 	uint64_t ieeeaddr;
 	int i = 0;
 
-	fp = fopen("JoinedDevices", 'r');
+	fp = fopen("JoinedDevices", "a+");
 	while(!feof(fp))
 	{
-		fscanf("%u %x %lx %u\n", index, nwkaddr, ieeeaddr, endpoint);
+		fscanf("%u %x %lx %u\n", &index, &nwkaddr, &ieeeaddr);
 		nodeInfoList[i].DevInfo.Index = index;
 		nodeInfoList[i].DevInfo.NwkAddr = nwkaddr;
 		nodeInfoList[i].DevInfo.IEEEAddr = ieeeaddr;
-		nodeInfoList[i].AppInfo.EndPoint = endpoint;
 		nodeInfoList[i].AppInfo.ActiveNow = NS_NOT_REACHABLE;
 	}
 	fclose(fp);
@@ -511,7 +512,7 @@ static uint8_t mtZdoEndDeviceAnnceIndCb(EndDeviceAnnceIndFormat_t *msg)
 	actReq.NwkAddrOfInterest = msg->NwkAddr;
 	NewDeviceAddr = msg->NwkAddr;
 
-	consolePrint("\nNew device joined network.\n");
+	consolePrint("\nA Device joined network.\n");
 	addNodeInfo(msg);
 
 	zdoActiveEpReq(&actReq);
@@ -826,11 +827,8 @@ static void displayDevices(void)
 				actReq.NwkAddrOfInterest = nodeList[i].childs[cI].ChildAddr;
 				zdoActiveEpReq(&actReq);
 				status = 0;
-				rpcGetMqClientMsg();
-				while (status != -1)
-				{
-					status = rpcWaitMqClientMsg(1000);
-				}
+				// Wait only for a second.
+				status = rpcWaitMqClientMsg(1000);
 			}
 
 		}
