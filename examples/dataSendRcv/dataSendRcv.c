@@ -226,7 +226,7 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 		nodeInfoList[joinedNodesCount].DevInfo.NwkAddr = EDAnnce->NwkAddr;
 		nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_JUST_JOINED;
 		fp = fopen("JoinedDevices", "a");
-		fprintf("%u %x %lx %u\n", nodeInfoList[joinedNodesCount].DevInfo.Index,
+		fprintf(fp, "%u %x %lx %u\n", nodeInfoList[joinedNodesCount].DevInfo.Index,
 				nodeInfoList[joinedNodesCount].DevInfo.NwkAddr,
 				nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr);
 		fclose(fp);
@@ -300,7 +300,7 @@ static int loadDeviceInfo()
 	fp = fopen("JoinedDevices", "a+");
 	while(!feof(fp))
 	{
-		fscanf("%u %x %lx %u\n", &index, &nwkaddr, &ieeeaddr);
+		fscanf(fp, "%u %x %lx %u\n", &index, &nwkaddr, &ieeeaddr);
 		nodeInfoList[i].DevInfo.Index = index;
 		nodeInfoList[i].DevInfo.NwkAddr = nwkaddr;
 		nodeInfoList[i].DevInfo.IEEEAddr = ieeeaddr;
