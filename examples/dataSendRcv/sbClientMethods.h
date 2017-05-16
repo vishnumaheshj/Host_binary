@@ -47,6 +47,9 @@ static int sbSentDataToShmem(char *data)
 	if (ShmWritePTR == NULL)
 			return -1;
 
+	// Make reading and writing separate threads on python side.
+	//while(ShmWritePTR->status != TAKEN) continue;
+
 	if (sMsg->hdr.message_type == SB_BOARD_INFO_RSP)
 		dataSize = SB_BOARD_INFO_RSP_LEN;
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_RSP)

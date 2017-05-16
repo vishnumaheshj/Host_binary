@@ -104,6 +104,18 @@ typedef struct
 	uint8_t status;
 } sHubInfo_t;
 
+// Device join states
+#define DJ_NEW_DEVICE     0x01
+#define DJ_KNOWN_DEVICE   0x02
+typedef struct
+{
+	uint8_t joinState;
+	switchBoardType_t type;
+	uint8_t devIndex;
+	uint64_t ieeeAddr;
+	uint8_t epStatus;
+} sDevInfo_t;
+
 typedef struct
 {
   sbMessageHdr_t hdr;
@@ -113,6 +125,7 @@ typedef struct
     sInfoReq_t infoReqData;
     sInfoRsp_t infoRspData;
     sHubInfo_t hubInfo;
+    sDevInfo_t devInfo;
   } data;
 } sbMessage_t;
 
