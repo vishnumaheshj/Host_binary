@@ -939,10 +939,11 @@ void* appProcess(void *argument)
 	if (status != -1)
 	{
         consolePrint("Network up\n\n");
-        sbSentDeviceReady();
+        sbSentDeviceReady(1);
 	}
 	else
 	{
+		sbSentDeviceReady(0);
 		consolePrint("Network Error\n\n");
 	}
 

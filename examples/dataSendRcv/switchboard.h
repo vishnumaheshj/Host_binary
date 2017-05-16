@@ -96,10 +96,13 @@ typedef struct
   hwSwitchBoardState_t currentState;
 } sInfoRsp_t;
 
+// Hub Status
+#define HUB_START_SUCCESS 0x01
+#define HUB_START_UNKNOWN 0x02
 typedef struct
 {
-	switchBoardType_t sbType;
-} sDevInfo_t;
+	uint8_t status;
+} sHubInfo_t;
 
 typedef struct
 {
@@ -109,7 +112,7 @@ typedef struct
     sBoard_t boardData;
     sInfoReq_t infoReqData;
     sInfoRsp_t infoRspData;
-    sDevInfo_t devInfo;
+    sHubInfo_t hubInfo;
   } data;
 } sbMessage_t;
 

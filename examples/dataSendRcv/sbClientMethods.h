@@ -62,13 +62,13 @@ static int sbSentDataToShmem(char *data)
 	return dataSize;
 }
 
-static int sbSentDeviceReady()
+static int sbSentDeviceReady(int ok)
 {
     int ret;
     char buffer[128];
 	sbMessage_t *Msg = (sbMessage_t *)buffer;
 	Msg->hdr.message_type = SB_DEVICE_READY_NTF;
-	Msg->data.devInfo.sbType.type = SB_TYPE_4X4;
+	Msg->data.hubInfo.status = ok? HUB_START_SUCCESS: HUB_START_UNKNOWN;
 	ret = sbSentDataToShmem((char *)Msg);
 	return ret;
 }
