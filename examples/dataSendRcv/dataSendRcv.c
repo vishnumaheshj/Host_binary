@@ -205,6 +205,9 @@ uint8_t joinedNodesCount = 0;
 #define NS_EP_PARENT_REACHED    0x3
 #define NS_NOT_REACHABLE        0x4
 
+int deviceReady = 0;
+
+
 static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 {
 	int i;
@@ -309,6 +312,27 @@ static int loadDeviceInfo()
 		joinedNodesCount++;
 	}
 	fclose(fp);
+}
+
+int processMsgFromPclient(char *Data)
+{
+	if (Data == NULL)
+		return 0;
+	sbMessage_t *Msg =  (sbMessage_t *)Data;
+	if (Msg->hdr.message_type == SB_DEVICE_READY_REQ)
+	{
+		if (deviceReady == 1)
+		{
+			sbSentDeviceReady(1);
+		}
+		else
+		{
+			sbSentDeviceReady(0);
+		}
+		return 0;
+	}
+
+	return 1;
 }
 /********************************************************************
  * START OF SYS CALL BACK FUNCTIONS
@@ -540,6 +564,8 @@ static uint8_t mtAfDataConfirmCb(DataConfirmFormat_t *msg)
 }
 static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
+	int messageToHub = 0;
+	messageToHub = processMsgFromPclient((char *)(msg->Data));
 	sbSentDataToShmem((char *)(msg->Data));
 	return 0;
 }
@@ -941,11 +967,13 @@ void* appProcess(void *argument)
 	if (status != -1)
 	{
         consolePrint("Network up\n\n");
+        deviceReady = 1;
         sbSentDeviceReady(1);
 	}
 	else
 	{
 		sbSentDeviceReady(0);
+		deviceReady = -1;
 		consolePrint("Network Error\n\n");
 	}
 

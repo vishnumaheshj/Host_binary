@@ -9,6 +9,7 @@ typedef unsigned char uint8;
 #define SB_STATE_CHANGE_RSP 0x04
 
 #define SB_DEVICE_READY_NTF 0x05
+#define SB_DEVICE_READY_REQ 0x06
 
 //Message Lengths
 #define SB_BOARD_INFO_REQ_LEN   (2)
@@ -17,6 +18,7 @@ typedef unsigned char uint8;
 #define SB_STATE_CHANGE_RSP_LEN (6)
 
 #define SB_DEVICE_READY_NTF_LEN (1)
+#define SB_DEVICE_READY_REQ_LEN (1)
 
 typedef struct
 {
