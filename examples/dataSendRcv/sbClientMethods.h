@@ -68,11 +68,9 @@ static int sbSentDataToShmem(char *data)
 static int sbSentDeviceReady(int ok)
 {
     int ret;
-    char buffer[128];
-	sbMessage_t *Msg = (sbMessage_t *)buffer;
-	Msg->hdr.message_type = SB_DEVICE_READY_NTF;
-	Msg->data.hubInfo.status = ok? HUB_START_SUCCESS: HUB_START_UNKNOWN;
-	ret = sbSentDataToShmem((char *)Msg);
+	uint8_t Msg;
+	Msg = SB_DEVICE_READY_NTF;
+	ret = sbSentDataToShmem((char *)&Msg);
 	return ret;
 }
 #endif
