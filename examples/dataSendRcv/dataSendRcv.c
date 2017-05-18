@@ -39,23 +39,6 @@
 /*********************************************************************
  * INCLUDES
  */
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include  <sys/ipc.h>
-#include  <sys/shm.h>
-
-
-#include "rpc.h"
-#include "mtSys.h"
-#include "mtZdo.h"
-#include "mtAf.h"
-#include "mtParser.h"
-#include "rpcTransport.h"
-#include "dbgPrint.h"
-#include "hostConsole.h"
-#include "switchboard.h"
 #include "sbClientMethods.h"
 
 /*********************************************************************
@@ -199,11 +182,6 @@ uint8_t joinedNodesCount = 0;
 /********************************************************************
  * START OF APP SPECIFIC FUNCTIONS
  */
-// Node States
-#define NS_JUST_JOINED          0x1
-#define NS_EP_ACTIVE            0x2
-#define NS_EP_PARENT_REACHED    0x3
-#define NS_NOT_REACHABLE        0x4
 
 int deviceReady = 0;
 
@@ -212,11 +190,13 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 {
 	int i;
 	int alreadyJoined = 0;
+	int devIndex = 0;
 	for (i = 0; i < joinedNodesCount; i++)
 	{
 		if (nodeInfoList[i].DevInfo.IEEEAddr == EDAnnce->IEEEAddr)
 		{
 			alreadyJoined = 1;
+			devIndex = i;
 		}
 	}
 
@@ -249,8 +229,9 @@ static int updateNodeInfoEpActive(ActiveEpRspFormat_t *AERsp)
 		{
 			if (AERsp->ActiveEPCount == 1)
 			{
-				nodeInfoList[joinedNodesCount].AppInfo.EndPoint = AERsp->ActiveEPList[0];
-				nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_EP_ACTIVE;
+				nodeInfoList[i].AppInfo.EndPoint = AERsp->ActiveEPList[0];
+				nodeInfoList[i].AppInfo.ActiveNow = NS_EP_ACTIVE;
+				sbSentDeviceJoin(NS_EP_ACTIVE, i+1, AERsp, nodeInfoList[i].AppInfo.EndPoint);
 				return 0;
 			}
 			else
@@ -891,7 +872,8 @@ uint32_t appInit(void)
 
 	return 0;
 }
-uint8_t initDone = 0;
+extern uint8_t initDone;
+
 void* appMsgProcess(void *argument)
 {
 

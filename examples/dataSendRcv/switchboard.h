@@ -10,6 +10,8 @@ typedef unsigned char uint8;
 
 #define SB_DEVICE_READY_NTF 0x05
 #define SB_DEVICE_READY_REQ 0x06
+#define SB_DEVICE_TYPE_REQ  0X07
+#define SB_DEVICE_TYPE_NTF  0X08
 
 //Message Lengths
 #define SB_BOARD_INFO_REQ_LEN   (2)
@@ -19,6 +21,8 @@ typedef unsigned char uint8;
 
 #define SB_DEVICE_READY_NTF_LEN (1)
 #define SB_DEVICE_READY_REQ_LEN (1)
+#define SB_DEVICE_TYPE_REQ_LEN  (1)
+#define SB_DEVICE_TYPE_NTF_LEN  (1)
 
 typedef struct
 {
@@ -101,6 +105,13 @@ typedef struct
 // Device join states
 #define DJ_NEW_DEVICE     0x01
 #define DJ_KNOWN_DEVICE   0x02
+
+// Node States
+#define NS_JUST_JOINED          0x1
+#define NS_EP_ACTIVE            0x2
+#define NS_EP_PARENT_REACHED    0x3
+#define NS_NOT_REACHABLE        0x4
+
 typedef struct
 {
 	uint8 joinState;
