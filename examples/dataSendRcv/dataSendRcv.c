@@ -318,6 +318,7 @@ int processMsgFromPclient(char *Data)
 {
 	if (Data == NULL)
 		return 0;
+
 	sbMessage_t *Msg =  (sbMessage_t *)Data;
 	if (Msg->hdr.message_type == SB_DEVICE_READY_REQ)
 	{
@@ -564,8 +565,6 @@ static uint8_t mtAfDataConfirmCb(DataConfirmFormat_t *msg)
 }
 static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
-	int messageToHub = 0;
-	messageToHub = processMsgFromPclient((char *)(msg->Data));
 	sbSentDataToShmem((char *)(msg->Data));
 	return 0;
 }
@@ -926,6 +925,8 @@ void* appProcess(void *argument)
 {
 	int32_t status;
 	uint32_t quit = 0;
+	char buffer[128];
+	int messageToHub;
 
 	key_t          ShmReadKEY, ShmWriteKEY;
 	int            ShmReadID, ShmWriteID;
@@ -1024,12 +1025,16 @@ void* appProcess(void *argument)
 
 			memset(DataRequest.Data, 0, 128);
 			DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
+			messageToHub = processMsgFromPclient((char *)(DataRequest.Data));
 			ShmReadPTR->status = TAKEN;
 
-			initDone = 0;
-			afDataRequest(&DataRequest);
-			rpcWaitMqClientMsg(500);
-			initDone = 1;
+			if (messageToHub)
+			{
+				initDone = 0;
+				afDataRequest(&DataRequest);
+				rpcWaitMqClientMsg(500);
+				initDone = 1;
+			}
 		}
 
 	}
