@@ -231,6 +231,7 @@ static int updateNodeInfoEpActive(ActiveEpRspFormat_t *AERsp)
 			{
 				nodeInfoList[i].AppInfo.EndPoint = AERsp->ActiveEPList[0];
 				nodeInfoList[i].AppInfo.ActiveNow = NS_EP_ACTIVE;
+				printf("EP Active.\n");
 				sbSentDeviceJoin(NS_EP_ACTIVE, i+1, AERsp, nodeInfoList[i].AppInfo.EndPoint);
 				return 0;
 			}
@@ -546,6 +547,7 @@ static uint8_t mtAfDataConfirmCb(DataConfirmFormat_t *msg)
 }
 static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
+	processMsgFromZNP((char *)(msg->Data));
 	sbSentDataToShmem((char *)(msg->Data));
 	return 0;
 }

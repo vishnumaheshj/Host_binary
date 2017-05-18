@@ -71,6 +71,8 @@ static int sbSentDataToShmem(char *data)
 		dataSize = SB_STATE_CHANGE_RSP_LEN;
 	else if (sMsg->hdr.message_type == SB_DEVICE_READY_NTF)
 		dataSize = SB_DEVICE_READY_NTF_LEN;
+	else if (sMsg->hdr.message_type == SB_DEVICE_TYPE_NTF)
+		dataSize = SB_BOARD_INFO_RSP_LEN; 
 	else
 		dataSize = 128;
 
@@ -93,6 +95,7 @@ static int sbSentDeviceJoin(uint8 joinState, uint8 devIndex, ActiveEpRspFormat_t
 {
 	if (joinState == NS_EP_ACTIVE)
 	{
+		printf("Sending to board:%d.\n", devIndex);
 		DataRequestFormat_t DataRequest;
 		DataRequest.DstAddr     = AERsp->NwkAddr;
 		DataRequest.DstEndpoint = endPoint;
@@ -109,6 +112,17 @@ static int sbSentDeviceJoin(uint8 joinState, uint8 devIndex, ActiveEpRspFormat_t
 		afDataRequest(&DataRequest);
 		rpcWaitMqClientMsg(500);
 		initDone = 1;
+	}
+
+}
+
+static int processMsgFromZNP(char *Data)
+{
+	sbMessage_t *Msg = (sbMessage_t *)Data;
+
+	if (Msg->hdr.message_type == SB_DEVICE_TYPE_NTF)
+	{
+		//
 	}
 
 }
