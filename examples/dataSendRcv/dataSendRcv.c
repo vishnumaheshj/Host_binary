@@ -156,29 +156,6 @@ typedef struct
 Node_t nodeList[64];
 uint8_t nodeCount = 0;
 
-typedef struct
-{
-	uint8_t Index;
-	uint8_t DeviceType;
-	uint16_t NwkAddr;
-	uint64_t IEEEAddr;
-} DeviceInfo_t;
-
-typedef struct
-{
-	uint8_t EndPoint;
-	uint8_t ActiveNow;
-} AppInfo_t;
-
-typedef struct
-{
-	DeviceInfo_t DevInfo;
-	AppInfo_t AppInfo;
-} NodeInfo_t;
-
-NodeInfo_t nodeInfoList[64];
-uint8_t joinedNodesCount = 0;
-
 /********************************************************************
  * START OF APP SPECIFIC FUNCTIONS
  */
@@ -195,6 +172,7 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 	{
 		if (nodeInfoList[i].DevInfo.IEEEAddr == EDAnnce->IEEEAddr)
 		{
+			nodeInfoList[i].DevInfo.joinState = DJ_KNOWN_DEVICE;
 			alreadyJoined = 1;
 			devIndex = i;
 		}
@@ -207,6 +185,7 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 		nodeInfoList[joinedNodesCount].DevInfo.Index = joinedNodesCount + 1;
 		nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr = EDAnnce->IEEEAddr;
 		nodeInfoList[joinedNodesCount].DevInfo.NwkAddr = EDAnnce->NwkAddr;
+		nodeInfoList[joinedNodesCount].DevInfo.joinState = DJ_NEW_DEVICE;
 		nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_JUST_JOINED;
 		fp = fopen("JoinedDevices", "a");
 		fprintf(fp, "%u %x %llx\n", nodeInfoList[joinedNodesCount].DevInfo.Index,
@@ -547,8 +526,13 @@ static uint8_t mtAfDataConfirmCb(DataConfirmFormat_t *msg)
 }
 static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
-	processMsgFromZNP((char *)(msg->Data));
-	sbSentDataToShmem((char *)(msg->Data));
+	int messageToServer = 0;
+
+	messageToServer = processMsgFromZNP(msg);
+	if (messageToServer)
+	{
+		sbSentDataToShmem((char *)(msg->Data));
+	}
 	return 0;
 }
 
