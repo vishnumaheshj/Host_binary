@@ -57,7 +57,6 @@
 devStates_t devState = DEV_HOLD;
 uint8_t gSrcEndPoint = 1;
 uint8_t gDstEndPoint = 1;
-uint16_t NewDeviceAddr = 0x853b;
 
 /***********************************************************************/
 
@@ -498,7 +497,6 @@ static uint8_t mtZdoEndDeviceAnnceIndCb(EndDeviceAnnceIndFormat_t *msg)
 	ActiveEpReqFormat_t actReq;
 	actReq.DstAddr = msg->NwkAddr;
 	actReq.NwkAddrOfInterest = msg->NwkAddr;
-	NewDeviceAddr = msg->NwkAddr;
 
 	consolePrint("\nA Device joined network.\n");
 	addNodeInfo(msg);
@@ -964,11 +962,11 @@ void* appProcess(void *argument)
 
 		consolePrint("Waiting for device to join\n");
 	
-        while (!NewDeviceAddr) continue;
+		while (!(nodeInfoList[0].AppInfo.ActiveNow == NS_BOARD_READY)) continue;
 
-        printf(" Connected to:0x%x\n", NewDeviceAddr);
+		printf(" Connected to:0x%x\n", nodeInfoList[0].DevInfo.NwkAddr);
         
-		DataRequest.DstAddr = NewDeviceAddr;
+		DataRequest.DstAddr = nodeInfoList[0].DevInfo.NwkAddr;
 
 		DataRequest.DstEndpoint = 8;
 
