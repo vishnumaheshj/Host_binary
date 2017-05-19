@@ -171,6 +171,8 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 	{
 		if (nodeInfoList[i].DevInfo.IEEEAddr == EDAnnce->IEEEAddr)
 		{
+            printf("ZNP:device join: known device:%d %llx", i+1, EDAnnce->IEEEAddr);
+            printf("NWK:%x\n", EDAnnce->NwkAddr);
 			nodeInfoList[i].DevInfo.joinState = DJ_KNOWN_DEVICE;
 			alreadyJoined = 1;
 			devIndex = i;
@@ -179,6 +181,8 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 
 	if (!alreadyJoined)
 	{
+        printf("ZNP:device join:new device:%d %llx\n", joinedNodesCount + 1, EDAnnce->IEEEAddr);
+        printf("NWK:%x\n", EDAnnce->NwkAddr);
 		FILE *fp;
 		//A Lock may be required.
 		nodeInfoList[joinedNodesCount].DevInfo.Index = joinedNodesCount + 1;
@@ -201,15 +205,17 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 static int updateNodeInfoEpActive(ActiveEpRspFormat_t *AERsp)
 {
 	int i;
+    printf("ZNP: active ep callback\n");
 	for (i = 0; i < joinedNodesCount; i++)
 	{
 		if (nodeInfoList[i].DevInfo.NwkAddr == AERsp->NwkAddr)
 		{
+            printf("ZNP: active ep, found device:%x\n", AERsp->NwkAddr);
 			if (AERsp->ActiveEPCount == 1)
 			{
 				nodeInfoList[i].AppInfo.EndPoint = AERsp->ActiveEPList[0];
 				nodeInfoList[i].AppInfo.ActiveNow = NS_EP_ACTIVE;
-				printf("EP Active.\n");
+				printf("ZNP: EP Active for:%d\n", nodeInfoList[i].DevInfo.Index);
 				sbSentDeviceJoin(NS_EP_ACTIVE, i+1, AERsp, nodeInfoList[i].AppInfo.EndPoint);
 				return 0;
 			}
@@ -254,6 +260,7 @@ static int updateNodeInfoLqi(MgmtLqiRspFormat_t *LQIRsp)
 
 static int loadDeviceInfo()
 {
+    printf("load device info\n");
 	FILE *fp;
 	uint8_t index;
 	uint16_t nwkaddr;
@@ -261,15 +268,22 @@ static int loadDeviceInfo()
 	int i = 0;
 
 	fp = fopen("JoinedDevices", "a+");
-	fgetc(fp);
-	while(!feof(fp))
+	fseek(fp, 0, SEEK_END);
+	if(ftell(fp) != 0)
 	{
-		fscanf(fp, "%u %x %llx\n", &index, &nwkaddr, &ieeeaddr);
-		nodeInfoList[i].DevInfo.Index = index;
-		nodeInfoList[i].DevInfo.NwkAddr = nwkaddr;
-		nodeInfoList[i].DevInfo.IEEEAddr = ieeeaddr;
-		nodeInfoList[i].AppInfo.ActiveNow = NS_NOT_REACHABLE;
-		joinedNodesCount++;
+		rewind(fp);
+		while(!feof(fp))
+		{
+			fscanf(fp, "%u %hx %llx\n", &index, &nwkaddr, &ieeeaddr);
+			nodeInfoList[i].DevInfo.Index = index;
+			nodeInfoList[i].DevInfo.NwkAddr = nwkaddr;
+			nodeInfoList[i].DevInfo.IEEEAddr = ieeeaddr;
+			nodeInfoList[i].DevInfo.joinState = DJ_KNOWN_DEVICE; 
+			nodeInfoList[i].AppInfo.ActiveNow = NS_NOT_REACHABLE;
+			joinedNodesCount++;
+			printf("loaded:%d to %d. index:%u, nwk:%x iee:%llx\n", joinedNodesCount, i, index, nwkaddr, ieeeaddr);
+			i++;
+		}
 	}
 	fclose(fp);
 }
@@ -285,10 +299,12 @@ int processMsgFromPclient(char *Data)
 		if (deviceReady == 1)
 		{
 			sbSentDeviceReady(1);
+            printf("r:device up send\n");
 		}
 		else
 		{
 			sbSentDeviceReady(0);
+            printf("r:device up error send\n");
 		}
 		return 0;
 	}
@@ -498,7 +514,8 @@ static uint8_t mtZdoEndDeviceAnnceIndCb(EndDeviceAnnceIndFormat_t *msg)
 	actReq.DstAddr = msg->NwkAddr;
 	actReq.NwkAddrOfInterest = msg->NwkAddr;
 
-	consolePrint("\nA Device joined network.\n");
+	//consolePrint("\nA Device joined network.\n");
+    printf("Device annce callback...");
 	addNodeInfo(msg);
 
 	zdoActiveEpReq(&actReq);
@@ -869,24 +886,6 @@ void* appMsgProcess(void *argument)
 	return 0;
 }
 
-void fillData(char *buf)
-{
-    sbMessage_t *msg = (sbMessage_t *) buf;
-    
-    msg->hdr.message_type = SB_STATE_CHANGE_REQ;
-    msg->data.boardData.sbType.type = SB_TYPE_4X4;
-    msg->data.boardData.switchData.state.switch1 = SW_TURN_ON;
-    msg->data.boardData.switchData.state.switch2 = SW_TURN_OFF;
-    msg->data.boardData.switchData.state.switch3 = SW_TURN_ON;
-    msg->data.boardData.switchData.state.switch4 = SW_TURN_OFF;
-    msg->data.boardData.switchData.state.switch5 = SW_DONT_CARE;
-    msg->data.boardData.switchData.state.switch6 = SW_DONT_CARE;
-    msg->data.boardData.switchData.state.switch7 = SW_DONT_CARE;
-    msg->data.boardData.switchData.state.switch8 = SW_DONT_CARE;
-    
-    buf[6] = '\0';
-}
-
 void* appProcess(void *argument)
 {
 	int32_t status;
@@ -919,6 +918,7 @@ void* appProcess(void *argument)
         	printf("*** shmat error (client) ***\n");
 	}
 
+    printf("sizeof:%d\n", sizeof(sbMessage_t));
 	memset(ShmWritePTR, NOT_READY, 256);
 	loadDeviceInfo();
 
@@ -953,6 +953,16 @@ void* appProcess(void *argument)
 	nvWrite.Value[0] = 1;
 	status = sysOsalNvWrite(&nvWrite);
 
+    printf("Joined nodes count:%d\n", joinedNodesCount);
+	for (int i = 0; i < joinedNodesCount; i++)
+	{
+		printf("Index:%d, ",nodeInfoList[i].DevInfo.Index);
+		printf("nwk:%x, ",nodeInfoList[i].DevInfo.NwkAddr);
+		printf("ieeee:%llx, ",nodeInfoList[i].DevInfo.IEEEAddr);
+		printf("jstate:%d, ",nodeInfoList[i].DevInfo.joinState);
+		printf("actNow:%d\n, ",nodeInfoList[i].AppInfo.ActiveNow);
+	}
+
 	while (quit == 0)
 	{
 		nodeCount = 0;
@@ -962,7 +972,11 @@ void* appProcess(void *argument)
 
 		consolePrint("Waiting for device to join\n");
 	
-		while (!(nodeInfoList[0].AppInfo.ActiveNow == NS_BOARD_READY)) continue;
+		while (!(nodeInfoList[0].AppInfo.ActiveNow == NS_BOARD_READY))
+		{
+				 rpcWaitMqClientMsg(500);
+				continue;
+		}
 
 		printf(" Connected to:0x%x\n", nodeInfoList[0].DevInfo.NwkAddr);
         
@@ -986,8 +1000,10 @@ void* appProcess(void *argument)
 		{
 			//initDone = 0;
 			initDone = 1;
+            printf("r:waiting to get filled...\n");
 			while (ShmReadPTR->status != FILLED)
 				continue;
+            printf("r:message filled...\n");
 
 			memset(DataRequest.Data, 0, 128);
 			DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
@@ -998,6 +1014,7 @@ void* appProcess(void *argument)
 			{
 				initDone = 0;
 				afDataRequest(&DataRequest);
+                printf("r:send to Hub...\n");
 				rpcWaitMqClientMsg(500);
 				initDone = 1;
 			}

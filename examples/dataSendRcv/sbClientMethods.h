@@ -67,16 +67,25 @@ static int sbGetDataFromShmem(char *serverSpace)
 
 	if (sMsg->hdr.message_type == SB_BOARD_INFO_REQ)
 	{
+        printf("r:board info req\n");
 		memcpy(serverSpace, data, SB_BOARD_INFO_REQ_LEN);
 		return SB_BOARD_INFO_REQ_LEN;
 	}
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_REQ)
 	{
+        printf("r:state change req\n");
 		memcpy(serverSpace, data, SB_STATE_CHANGE_REQ_LEN);
 		return SB_STATE_CHANGE_REQ_LEN;
 	}
+    else if (sMsg->hdr.message_type == SB_DEVICE_READY_REQ)
+    {
+        printf("r:device ready req\n");
+        memcpy(serverSpace, data, SB_DEVICE_READY_REQ_LEN);
+        return SB_DEVICE_READY_REQ_LEN;
+    }
 	else
 	{
+        printf("r:unknown message\n");
 		memcpy(serverSpace, data, 128);
 		return 128;
 	}
@@ -123,7 +132,6 @@ static int sbSentDeviceJoin(uint8 epStatus, uint8 devIndex, void *Data, uint8_t 
 	if (epStatus == NS_EP_ACTIVE)
 	{
 		ActiveEpRspFormat_t *AERsp = (ActiveEpRspFormat_t *)Data;
-		printf("Sending to board:%d.\n", devIndex);
 		DataRequestFormat_t DataRequest;
 		DataRequest.DstAddr     = AERsp->NwkAddr;
 		DataRequest.DstEndpoint = endPoint;
@@ -138,6 +146,7 @@ static int sbSentDeviceJoin(uint8 epStatus, uint8 devIndex, void *Data, uint8_t 
 
 		initDone = 0;
 		afDataRequest(&DataRequest);
+        printf("ZNP: dev type req, send to board\n");
 		rpcWaitMqClientMsg(500);
 		initDone = 1;
 		return 0;
@@ -152,6 +161,7 @@ static int sbSentDeviceJoin(uint8 epStatus, uint8 devIndex, void *Data, uint8_t 
 		Msg->data.devInfo.ieeeAddr     = nodeInfoList[devIndex - 1].DevInfo.IEEEAddr;
 		Msg->data.devInfo.epStatus     = nodeInfoList[devIndex - 1].AppInfo.ActiveNow;
 		sbSentDataToShmem((char *)Msg);
+        printf("ZNP: info notification, send to python\n");
 		return 0;
 	}
 
@@ -162,12 +172,15 @@ static int processMsgFromZNP(IncomingMsgFormat_t *msg)
 {
 	sbMessage_t *Msg = (sbMessage_t *)(msg->Data);
 	int j;
+    printf("ZNP: new message\n");
 	if (Msg->hdr.message_type == SB_DEVICE_TYPE_NTF)
 	{
+        printf("ZNP: device type notification\n");
 		for (j = 0; j < joinedNodesCount; j++)
 		{
 			if (nodeInfoList[j].DevInfo.NwkAddr == msg->SrcAddr)
 			{
+                printf("ZNP: dtn: found device:%d\n", j+1);
 				nodeInfoList[j].DevInfo.DeviceType = Msg->data.infoRspData.sbType.type;
 				nodeInfoList[j].DevInfo.currentState = Msg->data.infoRspData.currentState;
 				nodeInfoList[j].AppInfo.ActiveNow = NS_BOARD_READY;
