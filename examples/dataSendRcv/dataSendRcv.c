@@ -56,6 +56,7 @@
 #include "dbgPrint.h"
 #include "hostConsole.h"
 #include "switchboard.h"
+#include "sbClientMethods.h"
 
 /*********************************************************************
  * MACROS
@@ -157,7 +158,7 @@ typedef struct
 {
 	uint16_t ChildAddr;
 	uint8_t Type;
-	uint8_t active_ep;
+
 } ChildNode_t;
 
 typedef struct
@@ -171,6 +172,170 @@ typedef struct
 Node_t nodeList[64];
 uint8_t nodeCount = 0;
 
+typedef struct
+{
+	uint8_t Index;
+	uint8_t DeviceType;
+	uint16_t NwkAddr;
+	uint64_t IEEEAddr;
+} DeviceInfo_t;
+
+typedef struct
+{
+	uint8_t EndPoint;
+	uint8_t ActiveNow;
+} AppInfo_t;
+
+typedef struct
+{
+	DeviceInfo_t DevInfo;
+	AppInfo_t AppInfo;
+} NodeInfo_t;
+
+NodeInfo_t nodeInfoList[64];
+uint8_t joinedNodesCount = 0;
+
+/********************************************************************
+ * START OF APP SPECIFIC FUNCTIONS
+ */
+// Node States
+#define NS_JUST_JOINED          0x1
+#define NS_EP_ACTIVE            0x2
+#define NS_EP_PARENT_REACHED    0x3
+#define NS_NOT_REACHABLE        0x4
+
+int deviceReady = 0;
+
+
+static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
+{
+	int i;
+	int alreadyJoined = 0;
+	for (i = 0; i < joinedNodesCount; i++)
+	{
+		if (nodeInfoList[i].DevInfo.IEEEAddr == EDAnnce->IEEEAddr)
+		{
+			alreadyJoined = 1;
+		}
+	}
+
+	if (!alreadyJoined)
+	{
+		FILE *fp;
+		//A Lock may be required.
+		nodeInfoList[joinedNodesCount].DevInfo.Index = joinedNodesCount + 1;
+		nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr = EDAnnce->IEEEAddr;
+		nodeInfoList[joinedNodesCount].DevInfo.NwkAddr = EDAnnce->NwkAddr;
+		nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_JUST_JOINED;
+		fp = fopen("JoinedDevices", "a");
+		fprintf(fp, "%u %x %lx\n", nodeInfoList[joinedNodesCount].DevInfo.Index,
+				nodeInfoList[joinedNodesCount].DevInfo.NwkAddr,
+				nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr);
+		fclose(fp);
+		joinedNodesCount++;
+		return 0;
+	}
+
+	return 1;
+}
+
+static int updateNodeInfoEpActive(ActiveEpRspFormat_t *AERsp)
+{
+	int i;
+	for (i = 0; i < joinedNodesCount; i++)
+	{
+		if (nodeInfoList[i].DevInfo.NwkAddr == AERsp->NwkAddr)
+		{
+			if (AERsp->ActiveEPCount == 1)
+			{
+				nodeInfoList[joinedNodesCount].AppInfo.EndPoint = AERsp->ActiveEPList[0];
+				nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_EP_ACTIVE;
+				return 0;
+			}
+			else
+			{
+				return 1;
+			}
+		}
+	}
+
+	return 2;
+}
+
+static int updateNodeInfoLqi(MgmtLqiRspFormat_t *LQIRsp)
+{
+	int i, j;
+	for (i = 0; i < LQIRsp->NeighborLqiListCount; i++)
+	{
+		for (j = 0; j < joinedNodesCount; j++)
+		{
+			if (nodeInfoList[j].DevInfo.IEEEAddr == LQIRsp->NeighborLqiList[i].ExtendedAddress)
+			{
+				if (nodeInfoList[j].AppInfo.ActiveNow != NS_EP_ACTIVE)
+				{
+					nodeInfoList[j].AppInfo.ActiveNow = NS_EP_PARENT_REACHED;
+				}
+				if (nodeInfoList[j].DevInfo.NwkAddr != LQIRsp->NeighborLqiList[i].NetworkAddress)
+				{
+					nodeInfoList[j].DevInfo.NwkAddr = LQIRsp->NeighborLqiList[i].NetworkAddress;
+					return 1;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+		}
+	}
+
+	return 2;
+}
+
+static int loadDeviceInfo()
+{
+	FILE *fp;
+	uint32_t index;
+	uint32_t nwkaddr;
+	uint64_t ieeeaddr;
+	int i = 0;
+
+	fp = fopen("JoinedDevices", "a+");
+	fgetc(fp);
+	while(!feof(fp))
+	{
+		fscanf(fp, "%u %x %lx\n", &index, &nwkaddr, &ieeeaddr);
+		nodeInfoList[i].DevInfo.Index = (uint8_t)index;
+		nodeInfoList[i].DevInfo.NwkAddr = (uint16_t)nwkaddr;
+		nodeInfoList[i].DevInfo.IEEEAddr = ieeeaddr;
+		nodeInfoList[i].AppInfo.ActiveNow = NS_NOT_REACHABLE;
+		joinedNodesCount++;
+	}
+	fclose(fp);
+
+	return 0;
+}
+
+int processMsgFromPclient(char *Data)
+{
+	if (Data == NULL)
+		return 0;
+
+	sbMessage_t *Msg =  (sbMessage_t *)Data;
+	if (Msg->hdr.message_type == SB_DEVICE_READY_REQ)
+	{
+		if (deviceReady == 1)
+		{
+			sbSentDeviceReady(1);
+		}
+		else
+		{
+			sbSentDeviceReady(0);
+		}
+		return 0;
+	}
+
+	return 1;
+}
 /********************************************************************
  * START OF SYS CALL BACK FUNCTIONS
  */
@@ -302,6 +467,8 @@ static uint8_t mtZdoMgmtLqiRspCb(MgmtLqiRspFormat_t *msg)
 	MgmtLqiReqFormat_t req;
 	if (msg->Status == MT_RPC_SUCCESS)
 	{
+		updateNodeInfoLqi(msg);
+
 		nodeList[nodeCount].NodeAddr = msg->SrcAddr;
 		nodeList[nodeCount].Type = (msg->SrcAddr == 0 ?
 		DEVICETYPE_COORDINATOR :
@@ -341,7 +508,6 @@ static uint8_t mtZdoMgmtLqiRspCb(MgmtLqiRspFormat_t *msg)
 
 static uint8_t mtZdoActiveEpRspCb(ActiveEpRspFormat_t *msg)
 {
-	int child = 0;
 
 	//SimpleDescReqFormat_t simReq;
 	consolePrint("NwkAddr: 0x%04X\n", msg->NwkAddr);
@@ -353,14 +519,9 @@ static uint8_t mtZdoActiveEpRspCb(ActiveEpRspFormat_t *msg)
 		for (i = 0; i < msg->ActiveEPCount; i++)
 		{
 			consolePrint("0x%02X\t", msg->ActiveEPList[i]);
-			/* HACK : Assumes one node and one end point per child */
-			for(child =0; child < nodeList[0].ChildCount; child++)
-			{
-				if(nodeList[0].childs[child].ChildAddr == msg->NwkAddr)
-					nodeList[0].childs[child].active_ep = msg->ActiveEPList[0];
-			}
 
 		}
+		updateNodeInfoEpActive(msg);
 		consolePrint("\n");
 	}
 	else
@@ -378,7 +539,9 @@ static uint8_t mtZdoEndDeviceAnnceIndCb(EndDeviceAnnceIndFormat_t *msg)
 	actReq.DstAddr = msg->NwkAddr;
 	actReq.NwkAddrOfInterest = msg->NwkAddr;
 
-	consolePrint("\nNew device joined network.\n");
+	consolePrint("\nA Device joined network.\n");
+	addNodeInfo(msg);
+
 	zdoActiveEpReq(&actReq);
 	return 0;
 }
@@ -410,7 +573,7 @@ static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 	consolePrint("%s\n", (char*) msg->Data);
 	consolePrint(
 	        "\nEnter message to send or type CHANGE to change the destination \nor QUIT to exit:\n");
-
+	sbSentDataToShmem((char *)(msg->Data));
 	return 0;
 }
 
@@ -731,17 +894,15 @@ static void displayDevices(void)
 				actReq.NwkAddrOfInterest = nodeList[i].childs[cI].ChildAddr;
 				zdoActiveEpReq(&actReq);
 				status = 0;
-				rpcGetMqClientMsg();
-				while (status != -1)
-				{
-					status = rpcWaitMqClientMsg(1000);
-				}
+				// Wait only for a second.
+				status = rpcWaitMqClientMsg(1000);
 			}
 
 		}
 		consolePrint("\n");
 
 	}
+	consolePrint("Done\n");
 }
 /*********************************************************************
  * INTERFACE FUNCTIONS
@@ -800,42 +961,45 @@ void fillData(char *buf)
     buf[6] = '\0';
 }
 
-#define  NOT_READY  -1
-#define  FILLED     0
-#define  TAKEN      1
-
-struct Memory {
-        int  status;
-        char data[50];
-};
-
 void* appProcess(void *argument)
 {
 	int32_t status;
 	uint32_t quit = 0;
+	int messageToHub;
 
-	key_t          ShmKEY;
-	int            ShmID;
-	struct Memory  *ShmPTR;
+	key_t          ShmReadKEY, ShmWriteKEY;
+	int            ShmReadID, ShmWriteID;
     
-	ShmKEY = ftok("/home", 'x');
-	ShmID = shmget(ShmKEY, sizeof(struct Memory), 0666);
-	if (ShmID < 0) {
+	ShmReadKEY = ftok("/home", 'y');
+	ShmReadID = shmget(ShmReadKEY, sizeof(struct Memory), 0666);
+	if (ShmReadID < 0) {
         	printf("*** shmget error (client) ***\n");
 	}   
     
-	ShmPTR = (struct Memory *) shmat(ShmID, NULL, 0); 
-	if (ShmPTR == NULL) {
+	ShmReadPTR = (struct Memory *) shmat(ShmReadID, NULL, 0);
+	if (ShmReadPTR == NULL) {
         	printf("*** shmat error (client) ***\n");
 	}   
     
+	ShmWriteKEY = ftok("/home", 'x');
+	ShmWriteID = shmget(ShmWriteKEY, sizeof(struct Memory), 0666);
+    fprintf(stderr,"shm id = %d\n", ShmWriteID);
+	if (ShmWriteID < 0) {
+        	printf("*** shmget error (client) ***\n");
+	}
 
+	ShmWritePTR = (struct Memory *) shmat(ShmWriteID, NULL, 0);
+	if (ShmWritePTR == NULL) {
+        	printf("*** shmat error (client) ***\n");
+	}
 
+	memset(ShmWritePTR, NOT_READY, 256);
+	loadDeviceInfo();
 
 	//Flush all messages from the que
 	do
 	{
-		status = rpcWaitMqClientMsg(50);
+		status = rpcWaitMqClientMsg(256);
 	} while (status != -1);
 
 	devState = DEV_HOLD;
@@ -843,10 +1007,14 @@ void* appProcess(void *argument)
 	status = startNetwork();
 	if (status != -1)
 	{
-		consolePrint("Network up\n\n");
+        	consolePrint("Network up\n\n");
+        	deviceReady = 1;
+        	sbSentDeviceReady(1);
 	}
 	else
 	{
+		sbSentDeviceReady(0);
+		deviceReady = -1;
 		consolePrint("Network Error\n\n");
 	}
 
@@ -859,9 +1027,6 @@ void* appProcess(void *argument)
 	nvWrite.Value[0] = 1;
 	status = sysOsalNvWrite(&nvWrite);
 
-	//char cmd[128];
-	int attget;
-
 	while (quit == 0)
 	{
 		nodeCount = 0;
@@ -869,27 +1034,12 @@ void* appProcess(void *argument)
 		displayDevices();
 		DataRequestFormat_t DataRequest;
 		/* HACK : On CHANGE cmd from server, sets addr and ep of child[o] as dst*/
-		if(nodeList[0].ChildCount == 1)
+		if(joinedNodesCount == 1)
 		{
-			attget = (int)nodeList[0].childs[0].ChildAddr;
-			DataRequest.DstAddr = (uint16_t) attget;
-			attget = (int)nodeList[0].childs[0].active_ep;
-			DataRequest.DstEndpoint = (uint8_t) attget;
+			DataRequest.DstAddr = nodeInfoList[0].DevInfo.NwkAddr;
+			DataRequest.DstEndpoint = nodeInfoList[0].AppInfo.EndPoint;
+			consolePrint("Setting target as %x %d\n", nodeInfoList[0].DevInfo.NwkAddr, nodeInfoList[0].AppInfo.EndPoint);
 		}
-#if 0
-		else 
-		{
-			consolePrint("Enter DstAddr here:\n");
-			consoleGetLine(cmd, 128);
-			sscanf(cmd, "%x", &attget);
-			DataRequest.DstAddr = (uint16_t) attget;
-
-			consolePrint("Enter DstEndpoint here:\n");
-			consoleGetLine(cmd, 128);
-			sscanf(cmd, "%x", &attget);
-			DataRequest.DstEndpoint = (uint8_t) attget;
-		}
-#endif
 
 		DataRequest.SrcEndpoint = 1;
 
@@ -905,44 +1055,31 @@ void* appProcess(void *argument)
 
 		while (1)
 		{
-			uint8_t *data;
-			char server_cmd[50];
 			//initDone = 0;
-
-			consolePrint(
-			        "Enter message to send or type CHANGE to change the destination\n");
-			consolePrint("or QUIT to exit\n");
-			//initDone = 1;
-			while (ShmPTR->status != FILLED)
-				continue;
-			ShmPTR->status = TAKEN;
-			memset(server_cmd,0,50);
-			memcpy(server_cmd, ShmPTR->data, strlen(ShmPTR->data));
-			fprintf(stderr, "Command received %s\n", server_cmd);
-			if (strcmp(server_cmd, "CHANGE") == 0)
-			{
-				break;
-			}
-			else if (strcmp(server_cmd, "QUIT") == 0)
-			{
-				quit = 1;
-				break;
-			}
-			else
-			{
-				data = (uint8_t*) server_cmd;
-				memcpy(DataRequest.Data, data, sizeof(sbMessage_t));
-				DataRequest.Len = 6;
-			}
-			initDone = 0;
-			afDataRequest(&DataRequest);
-			rpcWaitMqClientMsg(500);
 			initDone = 1;
+			while (ShmReadPTR->status != FILLED)
+				continue;
+
+			memset(DataRequest.Data, 0, 128);
+			DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
+			messageToHub = processMsgFromPclient((char *)(DataRequest.Data));
+			ShmReadPTR->status = TAKEN;
+
+			if (messageToHub)
+			{
+				initDone = 0;
+				afDataRequest(&DataRequest);
+				rpcWaitMqClientMsg(500);
+				initDone = 1;
+			}
+			else 
+				break;
 		}
 
 	}
 
-	shmdt((void *) ShmPTR);
+	shmdt((void *) ShmReadPTR);
+	shmdt((void *) ShmWritePTR);
 	return 0;
 }
 
