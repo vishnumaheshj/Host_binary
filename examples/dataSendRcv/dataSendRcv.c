@@ -248,8 +248,8 @@ static int updateNodeInfoEpActive(ActiveEpRspFormat_t *AERsp)
 		{
 			if (AERsp->ActiveEPCount == 1)
 			{
-				nodeInfoList[joinedNodesCount].AppInfo.EndPoint = AERsp->ActiveEPList[0];
-				nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_EP_ACTIVE;
+				nodeInfoList[i].AppInfo.EndPoint = AERsp->ActiveEPList[0];
+				nodeInfoList[i].AppInfo.ActiveNow = NS_EP_ACTIVE;
 				return 0;
 			}
 			else
@@ -994,7 +994,7 @@ void* appProcess(void *argument)
 	}
 
 	memset(ShmWritePTR, NOT_READY, 256);
-	loadDeviceInfo();
+	//loadDeviceInfo();
 
 	//Flush all messages from the que
 	do
@@ -1061,6 +1061,9 @@ void* appProcess(void *argument)
 				continue;
 
 			memset(DataRequest.Data, 0, 128);
+			DataRequest.DstAddr = nodeInfoList[0].DevInfo.NwkAddr;
+			DataRequest.DstEndpoint = nodeInfoList[0].AppInfo.EndPoint;
+			consolePrint("Setting target as %x %d\n", nodeInfoList[0].DevInfo.NwkAddr, nodeInfoList[0].AppInfo.EndPoint);
 			DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
 			messageToHub = processMsgFromPclient((char *)(DataRequest.Data));
 			ShmReadPTR->status = TAKEN;
