@@ -39,23 +39,6 @@
 /*********************************************************************
  * INCLUDES
  */
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include  <sys/ipc.h>
-#include  <sys/shm.h>
-
-
-#include "rpc.h"
-#include "mtSys.h"
-#include "mtZdo.h"
-#include "mtAf.h"
-#include "mtParser.h"
-#include "rpcTransport.h"
-#include "dbgPrint.h"
-#include "hostConsole.h"
-#include "switchboard.h"
 #include "sbClientMethods.h"
 
 /*********************************************************************
@@ -172,37 +155,9 @@ typedef struct
 Node_t nodeList[64];
 uint8_t nodeCount = 0;
 
-typedef struct
-{
-	uint8_t Index;
-	uint8_t DeviceType;
-	uint16_t NwkAddr;
-	uint64_t IEEEAddr;
-} DeviceInfo_t;
-
-typedef struct
-{
-	uint8_t EndPoint;
-	uint8_t ActiveNow;
-} AppInfo_t;
-
-typedef struct
-{
-	DeviceInfo_t DevInfo;
-	AppInfo_t AppInfo;
-} NodeInfo_t;
-
-NodeInfo_t nodeInfoList[64];
-uint8_t joinedNodesCount = 0;
-
 /********************************************************************
  * START OF APP SPECIFIC FUNCTIONS
  */
-// Node States
-#define NS_JUST_JOINED          0x1
-#define NS_EP_ACTIVE            0x2
-#define NS_EP_PARENT_REACHED    0x3
-#define NS_NOT_REACHABLE        0x4
 
 int deviceReady = 0;
 
@@ -215,6 +170,7 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 	{
 		if (nodeInfoList[i].DevInfo.IEEEAddr == EDAnnce->IEEEAddr)
 		{
+			nodeInfoList[i].DevInfo.joinState = DJ_KNOWN_DEVICE;
 			alreadyJoined = 1;
 		}
 	}
@@ -226,6 +182,7 @@ static int addNodeInfo(EndDeviceAnnceIndFormat_t *EDAnnce)
 		nodeInfoList[joinedNodesCount].DevInfo.Index = joinedNodesCount + 1;
 		nodeInfoList[joinedNodesCount].DevInfo.IEEEAddr = EDAnnce->IEEEAddr;
 		nodeInfoList[joinedNodesCount].DevInfo.NwkAddr = EDAnnce->NwkAddr;
+		nodeInfoList[joinedNodesCount].DevInfo.joinState = DJ_NEW_DEVICE;
 		nodeInfoList[joinedNodesCount].AppInfo.ActiveNow = NS_JUST_JOINED;
 		fp = fopen("JoinedDevices", "a");
 		fprintf(fp, "%u %x %lx\n", nodeInfoList[joinedNodesCount].DevInfo.Index,
@@ -250,6 +207,7 @@ static int updateNodeInfoEpActive(ActiveEpRspFormat_t *AERsp)
 			{
 				nodeInfoList[i].AppInfo.EndPoint = AERsp->ActiveEPList[0];
 				nodeInfoList[i].AppInfo.ActiveNow = NS_EP_ACTIVE;
+				sbSentDeviceJoin(NS_EP_ACTIVE, i+1, AERsp, nodeInfoList[i].AppInfo.EndPoint);
 				return 0;
 			}
 			else
@@ -300,15 +258,22 @@ static int loadDeviceInfo()
 	int i = 0;
 
 	fp = fopen("JoinedDevices", "a+");
-	fgetc(fp);
-	while(!feof(fp))
+	fseek(fp, 0, SEEK_END);
+	if(ftell(fp) != 0)
 	{
-		fscanf(fp, "%u %x %lx\n", &index, &nwkaddr, &ieeeaddr);
-		nodeInfoList[i].DevInfo.Index = (uint8_t)index;
-		nodeInfoList[i].DevInfo.NwkAddr = (uint16_t)nwkaddr;
-		nodeInfoList[i].DevInfo.IEEEAddr = ieeeaddr;
-		nodeInfoList[i].AppInfo.ActiveNow = NS_NOT_REACHABLE;
-		joinedNodesCount++;
+		rewind(fp);
+		while(!feof(fp))
+		{
+			fscanf(fp, "%u %hx %llx\n", &index, &nwkaddr, &ieeeaddr);
+			nodeInfoList[i].DevInfo.Index = (uint8_t)index;
+			nodeInfoList[i].DevInfo.NwkAddr = (uint16_t)nwkaddr;
+			nodeInfoList[i].DevInfo.IEEEAddr = ieeeaddr;
+			nodeInfoList[i].DevInfo.joinState = DJ_KNOWN_DEVICE; 
+			nodeInfoList[i].AppInfo.ActiveNow = NS_NOT_REACHABLE;
+			joinedNodesCount++;
+			printf("loaded:%d to %d. index:%u, nwk:%x iee:%llx\n", joinedNodesCount, i, index, nwkaddr, ieeeaddr);
+			i++;
+		}
 	}
 	fclose(fp);
 
@@ -565,6 +530,7 @@ static uint8_t mtAfDataConfirmCb(DataConfirmFormat_t *msg)
 }
 static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
+	int messageToServer = 0;
 
 	consolePrint(
 	        "\nIncoming Message from Endpoint 0x%02X and Address 0x%04X:\n",
@@ -573,7 +539,11 @@ static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 	consolePrint("%s\n", (char*) msg->Data);
 	consolePrint(
 	        "\nEnter message to send or type CHANGE to change the destination \nor QUIT to exit:\n");
-	sbSentDataToShmem((char *)(msg->Data));
+	messageToServer = processMsgFromZNP(msg);
+	if (messageToServer)
+	{
+		sbSentDataToShmem((char *)(msg->Data));
+	}
 	return 0;
 }
 
@@ -931,7 +901,8 @@ uint32_t appInit(void)
 
 	return 0;
 }
-uint8_t initDone = 0;
+extern uint8_t initDone;
+
 void* appMsgProcess(void *argument)
 {
 
@@ -941,24 +912,6 @@ void* appMsgProcess(void *argument)
 	}
 
 	return 0;
-}
-
-void fillData(char *buf)
-{
-    sbMessage_t *msg = (sbMessage_t *) buf;
-    
-    msg->hdr.message_type = SB_STATE_CHANGE_REQ;
-    msg->data.boardData.sbType.type = SB_TYPE_4X4;
-    msg->data.boardData.switchData.state.switch1 = SW_TURN_ON;
-    msg->data.boardData.switchData.state.switch2 = SW_TURN_OFF;
-    msg->data.boardData.switchData.state.switch3 = SW_TURN_ON;
-    msg->data.boardData.switchData.state.switch4 = SW_TURN_OFF;
-    msg->data.boardData.switchData.state.switch5 = SW_DONT_CARE;
-    msg->data.boardData.switchData.state.switch6 = SW_DONT_CARE;
-    msg->data.boardData.switchData.state.switch7 = SW_DONT_CARE;
-    msg->data.boardData.switchData.state.switch8 = SW_DONT_CARE;
-    
-    buf[6] = '\0';
 }
 
 void* appProcess(void *argument)
@@ -983,7 +936,6 @@ void* appProcess(void *argument)
     
 	ShmWriteKEY = ftok("/home", 'x');
 	ShmWriteID = shmget(ShmWriteKEY, sizeof(struct Memory), 0666);
-    fprintf(stderr,"shm id = %d\n", ShmWriteID);
 	if (ShmWriteID < 0) {
         	printf("*** shmget error (client) ***\n");
 	}
@@ -994,7 +946,7 @@ void* appProcess(void *argument)
 	}
 
 	memset(ShmWritePTR, NOT_READY, 256);
-	//loadDeviceInfo();
+	loadDeviceInfo();
 
 	//Flush all messages from the que
 	do
