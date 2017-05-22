@@ -23,8 +23,8 @@ typedef unsigned char uint8;
 #define SB_DEVICE_READY_NTF_LEN (1)
 #define SB_DEVICE_READY_REQ_LEN (1)
 #define SB_DEVICE_TYPE_REQ_LEN  (1)
-#define SB_DEVICE_TYPE_NTF_LEN  (1)
-#define SB_DEVICE_INFO_NTF_LEN  (32)
+#define SB_DEVICE_TYPE_NTF_LEN  (13)
+#define SB_DEVICE_INFO_NTF_LEN  (40)
 
 typedef struct
 {
@@ -117,12 +117,12 @@ typedef struct
 
 typedef struct
 {
-	uint64_t ieeeAddr;
-	hwSwitchBoardState_t currentState;
 	uint8 joinState;
 	switchBoardType_t sbType;
 	uint8 devIndex;
+	uint64_t ieeeAddr;
 	uint8 epStatus;
+	hwSwitchBoardState_t currentState;
 } sDevInfo_t;
 
 typedef struct
@@ -136,6 +136,17 @@ typedef struct
     sDevInfo_t devInfo;
   } data;
 } sbMessage_t;
+
+typedef struct
+{
+  sbMessageHdr_t hdr;
+  union
+  {
+    sBoard_t boardData;
+    sInfoReq_t infoReqData;
+    sInfoRsp_t infoRspData;
+  } data;
+} hbMessage_t;
 
 // Global Variables
 extern hwSwitchBoardState_t SwitchBoard_Global_State;
