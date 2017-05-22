@@ -532,13 +532,6 @@ static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
 	int messageToServer = 0;
 
-	consolePrint(
-	        "\nIncoming Message from Endpoint 0x%02X and Address 0x%04X:\n",
-	        msg->SrcEndpoint, msg->SrcAddr);
-	msg->Data[msg->Len] = '\0';
-	consolePrint("%s\n", (char*) msg->Data);
-	consolePrint(
-	        "\nEnter message to send or type CHANGE to change the destination \nor QUIT to exit:\n");
 	messageToServer = processMsgFromZNP(msg);
 	if (messageToServer)
 	{

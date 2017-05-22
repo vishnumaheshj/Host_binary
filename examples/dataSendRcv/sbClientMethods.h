@@ -67,21 +67,25 @@ static int sbGetDataFromShmem(char *serverSpace)
 
 	if (sMsg->hdr.message_type == SB_BOARD_INFO_REQ)
 	{
+        printf("r:board info req\n");
 		memcpy(serverSpace, data, SB_BOARD_INFO_REQ_LEN);
 		return SB_BOARD_INFO_REQ_LEN;
 	}
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_REQ)
 	{
+        printf("r:state change req\n");
 		memcpy(serverSpace, data, SB_STATE_CHANGE_REQ_LEN);
 		return SB_STATE_CHANGE_REQ_LEN;
 	}
-	else if (sMsg->hdr.message_type == SB_DEVICE_READY_REQ)
-	{
-		memcpy(serverSpace, data, SB_DEVICE_READY_REQ_LEN);
-		return SB_DEVICE_READY_REQ_LEN;
-	}
+    else if (sMsg->hdr.message_type == SB_DEVICE_READY_REQ)
+    {
+        printf("r:device ready req\n");
+        memcpy(serverSpace, data, SB_DEVICE_READY_REQ_LEN);
+        return SB_DEVICE_READY_REQ_LEN;
+    }
 	else
 	{
+        printf("r:unknown message\n");
 		memcpy(serverSpace, data, 128);
 		return 128;
 	}
@@ -90,26 +94,48 @@ static int sbGetDataFromShmem(char *serverSpace)
 static int sbSentDataToShmem(char *data)
 {
 	int dataSize;
-	sbMessage_t *sMsg = (sbMessage_t *)data;
+	hbMessage_t *sMsg = (hbMessage_t *)data;
+	sbMessage_t sbMsg;
 
 	if (ShmWritePTR == NULL)
 			return -1;
 
 	if (sMsg->hdr.message_type == SB_BOARD_INFO_RSP)
-		dataSize = SB_BOARD_INFO_RSP_LEN;
+	{
+		sbMsg.hdr.message_type = SB_BOARD_INFO_RSP;
+		sbMsg.data.infoRspData.sbType.type = sMsg->data.infoRspData.sbType.type;
+		
+		printf("Datas: %x %x %x %x %x %x %x %x\n", sMsg->data.infoRspData.currentState.switch1,
+		sMsg->data.infoRspData.currentState.switch2, sMsg->data.infoRspData.currentState.switch3,
+		sMsg->data.infoRspData.currentState.switch4, sMsg->data.infoRspData.currentState.switch5,
+		sMsg->data.infoRspData.currentState.switch6, sMsg->data.infoRspData.currentState.switch7,
+		sMsg->data.infoRspData.currentState.switch8);
+
+		sbMsg.data.infoRspData.currentState = sMsg->data.infoRspData.currentState;
+		dataSize = 40;
+	}
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_RSP)
-		dataSize = SB_STATE_CHANGE_RSP_LEN;
+	{
+		sbMsg.hdr.message_type = SB_STATE_CHANGE_RSP;
+		sbMsg.data.boardData.sbType.type = sMsg->data.boardData.sbType.type;
+		sbMsg.data.boardData.switchData   = sMsg->data.boardData.switchData;
+		dataSize = 40;
+	}
 	else if (sMsg->hdr.message_type == SB_DEVICE_READY_NTF)
+	{
 		dataSize = SB_DEVICE_READY_NTF_LEN;
-	else if (sMsg->hdr.message_type == SB_DEVICE_TYPE_NTF)
-		dataSize = SB_BOARD_INFO_RSP_LEN;
+		sbMsg.hdr.message_type = SB_DEVICE_READY_NTF;
+	}
 	else if (sMsg->hdr.message_type == SB_DEVICE_INFO_NTF)
+	{
+		sbMsg = *(sbMessage_t *)data;
 		dataSize = SB_DEVICE_INFO_NTF_LEN;
+	}
 	else
 		dataSize = 128;
 
 	memset(ShmWritePTR->data, 0, 256);
-	memcpy(ShmWritePTR->data, data, dataSize);
+	memcpy(ShmWritePTR->data, &sbMsg, dataSize);
 	ShmWritePTR->status = FILLED;
 	return dataSize;
 }
@@ -149,14 +175,15 @@ static int sbSentDeviceJoin(uint8 epStatus, uint8 devIndex, void *Data, uint8_t 
 	}
 	else if (epStatus == NS_BOARD_READY)
 	{
-		sbMessage_t *Msg = (sbMessage_t *)Data;
-		Msg->hdr.message_type = SB_DEVICE_INFO_NTF;
-		Msg->data.devInfo.joinState    = nodeInfoList[devIndex - 1].DevInfo.joinState;
-		Msg->data.devInfo.sbType.type  = nodeInfoList[devIndex - 1].DevInfo.DeviceType;
-		Msg->data.devInfo.devIndex     = nodeInfoList[devIndex - 1].DevInfo.Index;
-		Msg->data.devInfo.ieeeAddr     = nodeInfoList[devIndex - 1].DevInfo.IEEEAddr;
-		Msg->data.devInfo.epStatus     = nodeInfoList[devIndex - 1].AppInfo.ActiveNow;
-		sbSentDataToShmem((char *)Msg);
+		sbMessage_t sbMsg;
+		sbMsg.hdr.message_type = SB_DEVICE_INFO_NTF;
+		sbMsg.data.devInfo.joinState    = nodeInfoList[devIndex - 1].DevInfo.joinState;
+		sbMsg.data.devInfo.sbType.type  = nodeInfoList[devIndex - 1].DevInfo.DeviceType;
+		sbMsg.data.devInfo.devIndex     = nodeInfoList[devIndex - 1].DevInfo.Index;
+		sbMsg.data.devInfo.ieeeAddr     = nodeInfoList[devIndex - 1].DevInfo.IEEEAddr;
+		sbMsg.data.devInfo.epStatus     = nodeInfoList[devIndex - 1].AppInfo.ActiveNow;
+		sbMsg.data.devInfo.currentState = nodeInfoList[devIndex - 1].DevInfo.currentState;
+		sbSentDataToShmem((char *)&sbMsg);
         printf("ZNP: info notification, send to python\n");
 		return 0;
 	}
@@ -166,7 +193,7 @@ static int sbSentDeviceJoin(uint8 epStatus, uint8 devIndex, void *Data, uint8_t 
 
 static int processMsgFromZNP(IncomingMsgFormat_t *msg)
 {
-	sbMessage_t *Msg = (sbMessage_t *)(msg->Data);
+	hbMessage_t *Msg = (hbMessage_t *)(msg->Data);
 	int j;
     printf("ZNP: new message\n");
 	if (Msg->hdr.message_type == SB_DEVICE_TYPE_NTF)
@@ -176,7 +203,17 @@ static int processMsgFromZNP(IncomingMsgFormat_t *msg)
 		{
 			if (nodeInfoList[j].DevInfo.NwkAddr == msg->SrcAddr)
 			{
-                printf("ZNP: dtn: found device:%d\n", j+1);
+                printf("ZNP: dtn: found device:%x\n", msg->SrcAddr);
+				printf("Results from device type notofication\n");
+				printf("device type:%d\n", Msg->data.infoRspData.sbType.type);
+				printf("current state switch1:%d\n", Msg->data.infoRspData.currentState.switch1);
+				printf("current state switch2:%d\n", Msg->data.infoRspData.currentState.switch2);
+				printf("current state switch3:%d\n", Msg->data.infoRspData.currentState.switch3);
+				printf("current state switch4:%d\n", Msg->data.infoRspData.currentState.switch4);
+				printf("current state switch5:%d\n", Msg->data.infoRspData.currentState.switch5);
+				printf("current state switch6:%d\n", Msg->data.infoRspData.currentState.switch6);
+				printf("current state switch7:%d\n", Msg->data.infoRspData.currentState.switch7);
+				printf("current state switch8:%d\n", Msg->data.infoRspData.currentState.switch8);
 				nodeInfoList[j].DevInfo.DeviceType = Msg->data.infoRspData.sbType.type;
 				nodeInfoList[j].DevInfo.currentState = Msg->data.infoRspData.currentState;
 				nodeInfoList[j].AppInfo.ActiveNow = NS_BOARD_READY;
