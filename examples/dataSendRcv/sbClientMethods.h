@@ -73,8 +73,13 @@ static int sbGetDataFromShmem(char *serverSpace)
 	}
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_REQ)
 	{
-        printf("r:state change req\n");
-		memcpy(serverSpace, data, SB_STATE_CHANGE_REQ_LEN);
+		printf("r:state change req\n");
+		hbMessage_t hMsg;
+		hMsg.hdr.message_type = SB_STATE_CHANGE_REQ;
+		hMsg.data.boardData.sbType.type = sMsg->data.boardData.sbType.type;
+		hMsg.data.boardData.switchData.state = sMsg->data.boardData.switchData.state;
+
+		memcpy(serverSpace, &hMsg, SB_STATE_CHANGE_REQ_LEN);
 		return SB_STATE_CHANGE_REQ_LEN;
 	}
     else if (sMsg->hdr.message_type == SB_DEVICE_READY_REQ)
