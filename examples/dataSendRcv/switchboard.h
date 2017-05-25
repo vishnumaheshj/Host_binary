@@ -14,22 +14,16 @@ typedef unsigned char uint8;
 #define SB_DEVICE_TYPE_NTF  0x08
 #define SB_DEVICE_INFO_NTF  0x09
 
-//Message Lengths
-#define SB_BOARD_INFO_REQ_LEN   (2)
-#define SB_BOARD_INFO_RSP_LEN   (10)
-#define SB_STATE_CHANGE_REQ_LEN (6) 
-#define SB_STATE_CHANGE_RSP_LEN (6)
-
-#define SB_DEVICE_READY_NTF_LEN (1)
-#define SB_DEVICE_READY_REQ_LEN (1)
-#define SB_DEVICE_TYPE_REQ_LEN  (1)
-#define SB_DEVICE_TYPE_NTF_LEN  (13)
-#define SB_DEVICE_INFO_NTF_LEN  (40)
+typedef struct
+{
+  uint8 message_type;
+  uint8 node_id;
+} sbMessageHdr_t;
 
 typedef struct
 {
   uint8 message_type;
-} sbMessageHdr_t;
+} hbMessageHdr_t;
 
 
 // Switch Board Types
@@ -139,7 +133,7 @@ typedef struct
 
 typedef struct
 {
-  sbMessageHdr_t hdr;
+  hbMessageHdr_t hdr;
   union
   {
     sBoard_t boardData;

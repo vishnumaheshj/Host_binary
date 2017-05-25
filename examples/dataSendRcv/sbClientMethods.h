@@ -60,16 +60,19 @@ struct Memory  *ShmReadPTR,*ShmWritePTR;
 static int sbGetDataFromShmem(char *serverSpace)
 {
 	char *data = ShmReadPTR->data;
+	int dataSize = 0;
 	if (data == NULL)
 		return -1;
 
 	sbMessage_t *sMsg = (sbMessage_t *)data;
 
+	dataSize = sizeof(sbMessage_t);
+
 	if (sMsg->hdr.message_type == SB_BOARD_INFO_REQ)
 	{
         printf("r:board info req\n");
-		memcpy(serverSpace, data, SB_BOARD_INFO_REQ_LEN);
-		return SB_BOARD_INFO_REQ_LEN;
+		memcpy(serverSpace, data, dataSize);
+		return dataSize;
 	}
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_REQ)
 	{
@@ -79,20 +82,20 @@ static int sbGetDataFromShmem(char *serverSpace)
 		hMsg.data.boardData.sbType.type = sMsg->data.boardData.sbType.type;
 		hMsg.data.boardData.switchData.state = sMsg->data.boardData.switchData.state;
 
-		memcpy(serverSpace, &hMsg, SB_STATE_CHANGE_REQ_LEN);
-		return SB_STATE_CHANGE_REQ_LEN;
+		memcpy(serverSpace, &hMsg, dataSize);
+		return dataSize;
 	}
     else if (sMsg->hdr.message_type == SB_DEVICE_READY_REQ)
     {
         printf("r:device ready req\n");
-        memcpy(serverSpace, data, SB_DEVICE_READY_REQ_LEN);
-        return SB_DEVICE_READY_REQ_LEN;
+        memcpy(serverSpace, data, dataSize);
+        return dataSize;
     }
 	else
 	{
         printf("r:unknown message\n");
-		memcpy(serverSpace, data, 128);
-		return 128;
+		memcpy(serverSpace, data, dataSize);
+		return dataSize;
 	}
 }
 
@@ -105,6 +108,7 @@ static int sbSentDataToShmem(char *data)
 	if (ShmWritePTR == NULL)
 			return -1;
 
+	dataSize = sizeof(sbMessage_t);
 	if (sMsg->hdr.message_type == SB_BOARD_INFO_RSP)
 	{
 		sbMsg.hdr.message_type = SB_BOARD_INFO_RSP;
@@ -117,27 +121,21 @@ static int sbSentDataToShmem(char *data)
 		sMsg->data.infoRspData.currentState.switch8);
 
 		sbMsg.data.infoRspData.currentState = sMsg->data.infoRspData.currentState;
-		dataSize = 40;
 	}
 	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_RSP)
 	{
 		sbMsg.hdr.message_type = SB_STATE_CHANGE_RSP;
 		sbMsg.data.boardData.sbType.type = sMsg->data.boardData.sbType.type;
 		sbMsg.data.boardData.switchData   = sMsg->data.boardData.switchData;
-		dataSize = 40;
 	}
 	else if (sMsg->hdr.message_type == SB_DEVICE_READY_NTF)
 	{
-		dataSize = SB_DEVICE_READY_NTF_LEN;
 		sbMsg.hdr.message_type = SB_DEVICE_READY_NTF;
 	}
 	else if (sMsg->hdr.message_type == SB_DEVICE_INFO_NTF)
 	{
 		sbMsg = *(sbMessage_t *)data;
-		dataSize = SB_DEVICE_INFO_NTF_LEN;
 	}
-	else
-		dataSize = 128;
 
 	memset(ShmWritePTR->data, 0, 256);
 	memcpy(ShmWritePTR->data, &sbMsg, dataSize);
