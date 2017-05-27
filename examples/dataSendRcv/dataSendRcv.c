@@ -924,7 +924,6 @@ void* appMsgProcess(void *argument)
 void* appProcess(void *argument)
 {
 	int32_t status;
-	uint32_t quit = 0;
 	int index;
 
 	key_t          ShmReadKEY, ShmWriteKEY;
@@ -986,58 +985,49 @@ void* appProcess(void *argument)
 	nvWrite.Value[0] = 1;
 	status = sysOsalNvWrite(&nvWrite);
 
-	while (quit == 0)
+	nodeCount = 0;
+	initDone = 0;
+	displayDevices();
+	DataRequestFormat_t DataRequest;
+
+	DataRequest.SrcEndpoint = 1;
+
+	DataRequest.ClusterID = 6;
+
+	DataRequest.TransID = 5;
+
+	DataRequest.Options = 0;
+
+	DataRequest.Radius = 0xEE;
+
+	initDone = 1;
+
+	fprintf(stderr, " Starting busy loop of message from client");
+	while (1)
 	{
-		nodeCount = 0;
-		initDone = 0;
-		displayDevices();
-		DataRequestFormat_t DataRequest;
-		/* HACK : On CHANGE cmd from server, sets addr and ep of child[o] as dst*/
-		if(joinedNodesCount == 1)
-		{
-			DataRequest.DstAddr = nodeInfoList[0].DevInfo.NwkAddr;
-			DataRequest.DstEndpoint = nodeInfoList[0].AppInfo.EndPoint;
-			consolePrint("Setting target as %x %d\n", nodeInfoList[0].DevInfo.NwkAddr, nodeInfoList[0].AppInfo.EndPoint);
-		}
-
-		DataRequest.SrcEndpoint = 1;
-
-		DataRequest.ClusterID = 6;
-
-		DataRequest.TransID = 5;
-
-		DataRequest.Options = 0;
-
-		DataRequest.Radius = 0xEE;
-
+		//initDone = 0;
 		initDone = 1;
+		while (ShmReadPTR->status != FILLED)
+			continue;
 
-		while (1)
+		memset(DataRequest.Data, 0, 128);
+		
+		DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
+		index = processMsgFromPclient((char *)(DataRequest.Data));
+		ShmReadPTR->status = TAKEN;
+
+		if (index && (index <=joinedNodesCount))
 		{
-			//initDone = 0;
+			initDone = 0;
+			DataRequest.DstAddr = nodeInfoList[index -1].DevInfo.NwkAddr;
+			DataRequest.DstEndpoint = nodeInfoList[index -1].AppInfo.EndPoint;
+			consolePrint("Setting target as %x %d\n", nodeInfoList[0].DevInfo.NwkAddr, nodeInfoList[0].AppInfo.EndPoint);
+			afDataRequest(&DataRequest);
+			rpcWaitMqClientMsg(500);
 			initDone = 1;
-			while (ShmReadPTR->status != FILLED)
-				continue;
-
-			memset(DataRequest.Data, 0, 128);
-			
-			DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
-			index = processMsgFromPclient((char *)(DataRequest.Data));
-			ShmReadPTR->status = TAKEN;
-
-			if (index && (index <=joinedNodesCount))
-			{
-				initDone = 0;
-				DataRequest.DstAddr = nodeInfoList[index -1].DevInfo.NwkAddr;
-				DataRequest.DstEndpoint = nodeInfoList[index -1].AppInfo.EndPoint;
-				consolePrint("Setting target as %x %d\n", nodeInfoList[0].DevInfo.NwkAddr, nodeInfoList[0].AppInfo.EndPoint);
-				afDataRequest(&DataRequest);
-				rpcWaitMqClientMsg(500);
-				initDone = 1;
-			}
 		}
-
 	}
+
 
 	shmdt((void *) ShmReadPTR);
 	shmdt((void *) ShmWritePTR);
