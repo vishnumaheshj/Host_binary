@@ -299,7 +299,7 @@ int processMsgFromPclient(char *Data)
 		return 0;
 	}
 
-	return 1;
+	return (int)Msg->hdr.node_id;
 }
 /********************************************************************
  * START OF SYS CALL BACK FUNCTIONS
@@ -911,7 +911,7 @@ void* appProcess(void *argument)
 {
 	int32_t status;
 	uint32_t quit = 0;
-	int messageToHub;
+	int index;
 
 	key_t          ShmReadKEY, ShmWriteKEY;
 	int            ShmReadID, ShmWriteID;
@@ -1006,16 +1006,17 @@ void* appProcess(void *argument)
 				continue;
 
 			memset(DataRequest.Data, 0, 128);
-			DataRequest.DstAddr = nodeInfoList[0].DevInfo.NwkAddr;
-			DataRequest.DstEndpoint = nodeInfoList[0].AppInfo.EndPoint;
-			consolePrint("Setting target as %x %d\n", nodeInfoList[0].DevInfo.NwkAddr, nodeInfoList[0].AppInfo.EndPoint);
+			
 			DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
-			messageToHub = processMsgFromPclient((char *)(DataRequest.Data));
+			index = processMsgFromPclient((char *)(DataRequest.Data));
 			ShmReadPTR->status = TAKEN;
 
-			if (messageToHub)
+			if (index && (index <=joinedNodesCount))
 			{
 				initDone = 0;
+				DataRequest.DstAddr = nodeInfoList[index -1].DevInfo.NwkAddr;
+				DataRequest.DstEndpoint = nodeInfoList[index -1].AppInfo.EndPoint;
+				consolePrint("Setting target as %x %d\n", nodeInfoList[0].DevInfo.NwkAddr, nodeInfoList[0].AppInfo.EndPoint);
 				afDataRequest(&DataRequest);
 				rpcWaitMqClientMsg(500);
 				initDone = 1;
