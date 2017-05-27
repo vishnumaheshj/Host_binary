@@ -264,14 +264,14 @@ static int loadDeviceInfo()
 		rewind(fp);
 		while(!feof(fp))
 		{
-			fscanf(fp, "%u %hx %llx\n", &index, &nwkaddr, &ieeeaddr);
+			fscanf(fp, "%u %x %lx\n", &index, &nwkaddr, &ieeeaddr);
 			nodeInfoList[i].DevInfo.Index = (uint8_t)index;
 			nodeInfoList[i].DevInfo.NwkAddr = (uint16_t)nwkaddr;
 			nodeInfoList[i].DevInfo.IEEEAddr = ieeeaddr;
 			nodeInfoList[i].DevInfo.joinState = DJ_KNOWN_DEVICE; 
 			nodeInfoList[i].AppInfo.ActiveNow = NS_NOT_REACHABLE;
 			joinedNodesCount++;
-			printf("loaded:%d to %d. index:%u, nwk:%x iee:%llx\n", joinedNodesCount, i, index, nwkaddr, ieeeaddr);
+			printf("loaded:%d to %d. index:%u, nwk:%x iee:%lx\n", joinedNodesCount, i, index, nwkaddr, ieeeaddr);
 			i++;
 		}
 	}

@@ -50,7 +50,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <semaphore.h>
-#include <time.h>
+#include <sys/time.h>
 #include "queue.h"
 #include <time.h>
 

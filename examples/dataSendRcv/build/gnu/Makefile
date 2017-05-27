@@ -7,7 +7,7 @@ INCLUDE = -I$(PROJ_DIR)../../ -I$(PROJ_DIR)../../../../framework/platform/gnu -I
 CC= gcc
 #CC=/usr/local/angstrom/arm/bin/arm-angstrom-linux-gnueabi-gcc
 
-CFLAGS= -c -Wall -g -std=gnu99
+CFLAGS= -c -Wall -g -std=gnu99 -Werror
 LIBS = -lpthread -lrt
 DEFS += -DxCC26xx
 PROJ_DIR=
