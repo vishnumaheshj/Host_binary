@@ -544,11 +544,12 @@ static uint8_t mtAfDataConfirmCb(DataConfirmFormat_t *msg)
 static uint8_t mtAfIncomingMsgCb(IncomingMsgFormat_t *msg)
 {
 	int messageToServer = 0;
+	sbMessage_t sbMsg;
 
-	messageToServer = processMsgFromZNP(msg);
+	messageToServer = processMsgFromZNP(msg, &sbMsg);
 	if (messageToServer)
 	{
-		sbSentDataToShmem((char *)(msg->Data));
+		sbSentDataToShmem(&sbMsg);
 	}
 	return 0;
 }
