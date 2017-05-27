@@ -64,39 +64,13 @@ static int sbGetDataFromShmem(char *serverSpace)
 	if (data == NULL)
 		return -1;
 
-	sbMessage_t *sMsg = (sbMessage_t *)data;
 
 	dataSize = sizeof(sbMessage_t);
 
-	if (sMsg->hdr.message_type == SB_BOARD_INFO_REQ)
-	{
-        printf("r:board info req\n");
-		memcpy(serverSpace, data, dataSize);
-		return dataSize;
-	}
-	else if (sMsg->hdr.message_type == SB_STATE_CHANGE_REQ)
-	{
-		printf("r:state change req\n");
-		hbMessage_t hMsg;
-		hMsg.hdr.message_type = SB_STATE_CHANGE_REQ;
-		hMsg.data.boardData.sbType.type = sMsg->data.boardData.sbType.type;
-		hMsg.data.boardData.switchData.state = sMsg->data.boardData.switchData.state;
+	memcpy(serverSpace, data, dataSize);
 
-		memcpy(serverSpace, &hMsg, dataSize);
-		return dataSize;
-	}
-    else if (sMsg->hdr.message_type == SB_DEVICE_READY_REQ)
-    {
-        printf("r:device ready req\n");
-        memcpy(serverSpace, data, dataSize);
-        return dataSize;
-    }
-	else
-	{
-        printf("r:unknown message\n");
-		memcpy(serverSpace, data, dataSize);
-		return dataSize;
-	}
+	return dataSize;
+
 }
 
 static int sbSentDataToShmem(char *data)

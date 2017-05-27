@@ -282,10 +282,13 @@ static int loadDeviceInfo()
 
 int processMsgFromPclient(char *Data)
 {
+	int index;
 	if (Data == NULL)
 		return 0;
 
 	sbMessage_t *Msg =  (sbMessage_t *)Data;
+	index = (int)Msg->hdr.node_id;
+
 	if (Msg->hdr.message_type == SB_DEVICE_READY_REQ)
 	{
 		if (deviceReady == 1)
@@ -298,8 +301,18 @@ int processMsgFromPclient(char *Data)
 		}
 		return 0;
 	}
+	else if (Msg->hdr.message_type == SB_STATE_CHANGE_REQ)
+	{
+		hbMessage_t hMsg;
+		hMsg.hdr.message_type = SB_STATE_CHANGE_REQ;
+		hMsg.data.boardData.sbType.type = Msg->data.boardData.sbType.type;
+		hMsg.data.boardData.switchData.state = Msg->data.boardData.switchData.state;
 
-	return (int)Msg->hdr.node_id;
+		memset((void *)Msg, 0, sizeof(sbMessage_t));
+		memcpy((void *)Msg, &hMsg, sizeof(hbMessage_t));
+	}
+
+	return index;
 }
 /********************************************************************
  * START OF SYS CALL BACK FUNCTIONS
@@ -1021,8 +1034,6 @@ void* appProcess(void *argument)
 				rpcWaitMqClientMsg(500);
 				initDone = 1;
 			}
-			else 
-				break;
 		}
 
 	}
