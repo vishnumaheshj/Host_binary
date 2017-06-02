@@ -5,8 +5,13 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include  <sys/ipc.h>
-#include  <sys/shm.h>
+#include <sys/ipc.h>
+#if 0
+#include <sys/shm.h>
+#endif
+#include <sys/types.h>
+#include <sys/msg.h>
+#include <errno.h>
 
 
 #include "rpc.h"
@@ -48,27 +53,81 @@ uint8_t joinedNodesCount = 0;
 #define  FILLED     1
 #define  TAKEN      0
 
+#if 0
+//REMOVE_SHM
 struct Memory {
 	int  status;
 	char data[256];
 };
+#else
+struct msgq_buf {
+    long mtype;
+    char mtext[256];
+};
+#endif
 
-uint8_t initDone = 0;
+int8_t initDone = 0;
 
-struct Memory  *ShmReadPTR,*ShmWritePTR;
+#if 0
+struct Memory  *ShmReadPTR,*ShmWritePTR; 
+#else
+int msgQWriteID, msgQReadID;
+#endif
 
+#if 1
+int init_write_msgq()
+{
+        key_t          MsgQKEY; 
+        int            MsgQID = -1;
+
+        if ((MsgQKEY = ftok("/home", 'x')) == -1) {
+                perror("ftok");
+                return -1; // Need to add and handle proper error code.
+        }
+        if ((MsgQID = msgget(MsgQKEY, 0644)) == -1) {
+                perror("msgget");
+                return -1; // Need to add and handle proper error code.
+        }
+
+        return MsgQID;
+}
+int init_read_msgq()
+{
+        key_t          MsgQKEY;
+        int            MsgQID = -1;
+
+        if ((MsgQKEY = ftok("/home", 'y')) == -1) {
+                perror("ftok");
+                return -1; // Need to add and handle proper error code.
+        }
+        if ((MsgQID = msgget(MsgQKEY, 0644)) == -1) {
+                perror("msgget");
+                return -1; // Need to add and handle proper error code.
+        }
+
+        return MsgQID;
+}
+#endif
 static int sbGetDataFromShmem(char *serverSpace)
 {
+#if 0
 	char *data = ShmReadPTR->data;
 	int dataSize = 0;
 	if (data == NULL)
 		return -1;
-
-
 	dataSize = sizeof(sbMessage_t);
-
 	memcpy(serverSpace, data, dataSize);
-
+#else
+	struct msgq_buf buf;
+	buf.mtype = 0;
+	int dataSize = 0;
+	dataSize = sizeof(sbMessage_t);
+	if (msgrcv(msgQReadID, &buf,dataSize, 0, 0) == -1) {
+		    perror("msgrcv");
+		    return -1;
+	}
+	memcpy(serverSpace, buf.mtext, dataSize);
+#endif
 	return dataSize;
 
 }
@@ -76,7 +135,7 @@ static int sbGetDataFromShmem(char *serverSpace)
 static int sbSentDataToShmem(sbMessage_t *sbMsg)
 {
 	int dataSize;
-
+#if 0
 	if (ShmWritePTR == NULL)
 			return -1;
 
@@ -85,12 +144,23 @@ static int sbSentDataToShmem(sbMessage_t *sbMsg)
 	memset(ShmWritePTR->data, 0, 256);
 	memcpy(ShmWritePTR->data, sbMsg, dataSize);
 	ShmWritePTR->status = FILLED;
+#else
+	struct msgq_buf buf;
+	buf.mtype = 1;	
+	dataSize = sizeof(sbMessage_t);
+	memcpy(buf.mtext, sbMsg, dataSize);
+	if (msgsnd(msgQWriteID, &buf, dataSize, 0) == -1) {
+		perror("msgsnd");
+		return -1;
+	}
+
+#endif
 	return dataSize;
 }
 
 static int sbSentDeviceReady(int ok)
 {
-    int ret;
+    	int ret;
 	sbMessage_t sbMsg;
 	sbMsg.hdr.message_type = SB_DEVICE_READY_NTF;
 	ret = sbSentDataToShmem(&sbMsg);

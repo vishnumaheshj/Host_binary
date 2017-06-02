@@ -908,7 +908,9 @@ uint32_t appInit(void)
 
 	return 0;
 }
-extern uint8_t initDone;
+/* compilation error
+ * extern uint8_t initDone;
+ */
 
 void* appMsgProcess(void *argument)
 {
@@ -926,6 +928,8 @@ void* appProcess(void *argument)
 	int32_t status;
 	int index;
 
+	//REMOVE_SHM
+#if 0
 	key_t          ShmReadKEY, ShmWriteKEY;
 	int            ShmReadID, ShmWriteID;
     
@@ -952,6 +956,11 @@ void* appProcess(void *argument)
 	}
 
 	memset(ShmWritePTR, NOT_READY, 256);
+
+#else
+	msgQWriteID = init_write_msgq();
+	msgQReadID  = init_read_msgq();
+#endif
 	loadDeviceInfo();
 
 	//Flush all messages from the que
@@ -1002,11 +1011,13 @@ void* appProcess(void *argument)
 
 	initDone = 1;
 
-	fprintf(stderr, " Starting busy loop of message from client");
+	fprintf(stderr, " Starting loop for reading message from client");
 	while (1)
 	{
 		//initDone = 0;
 		initDone = 1;
+#if 0
+		//REMOVE_SHM
 		while (ShmReadPTR->status != FILLED)
 			continue;
 
@@ -1014,8 +1025,13 @@ void* appProcess(void *argument)
 		
 		DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
 		index = processMsgFromPclient((char *)(DataRequest.Data));
-		ShmReadPTR->status = TAKEN;
+		ShmReadPTR->status = TAKEN; 
+#else
+		memset(DataRequest.Data, 0, 128);
 
+		DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
+		index = processMsgFromPclient((char *)(DataRequest.Data));
+#endif
 		if (index && (index <=joinedNodesCount))
 		{
 			initDone = 0;
@@ -1028,9 +1044,10 @@ void* appProcess(void *argument)
 		}
 	}
 
-
-	shmdt((void *) ShmReadPTR);
-	shmdt((void *) ShmWritePTR);
+/*
+ *	shmdt((void *) ShmReadPTR);
+ *	shmdt((void *) ShmWritePTR);
+ */
 	return 0;
 }
 
