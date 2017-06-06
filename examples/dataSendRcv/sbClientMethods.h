@@ -6,9 +6,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
-#if 0
-#include <sys/shm.h>
-#endif
 #include <sys/types.h>
 #include <sys/msg.h>
 #include <errno.h>
@@ -49,32 +46,15 @@ typedef struct
 NodeInfo_t nodeInfoList[64];
 uint8_t joinedNodesCount = 0;
 
-#define  NOT_READY  -1
-#define  FILLED     1
-#define  TAKEN      0
-
-#if 0
-//REMOVE_SHM
-struct Memory {
-	int  status;
-	char data[256];
-};
-#else
 struct msgq_buf {
     long mtype;
     char mtext[256];
 };
-#endif
 
 int8_t initDone = 0;
 
-#if 0
-struct Memory  *ShmReadPTR,*ShmWritePTR; 
-#else
 int msgQWriteID, msgQReadID;
-#endif
 
-#if 1
 int init_write_msgq()
 {
         key_t          MsgQKEY; 
@@ -107,17 +87,8 @@ int init_read_msgq()
 
         return MsgQID;
 }
-#endif
 static int sbGetDataFromShmem(char *serverSpace)
 {
-#if 0
-	char *data = ShmReadPTR->data;
-	int dataSize = 0;
-	if (data == NULL)
-		return -1;
-	dataSize = sizeof(sbMessage_t);
-	memcpy(serverSpace, data, dataSize);
-#else
 	struct msgq_buf buf;
 	buf.mtype = 0;
 	int dataSize = 0;
@@ -127,7 +98,6 @@ static int sbGetDataFromShmem(char *serverSpace)
 		    return -1;
 	}
 	memcpy(serverSpace, buf.mtext, dataSize);
-#endif
 	return dataSize;
 
 }
@@ -135,16 +105,6 @@ static int sbGetDataFromShmem(char *serverSpace)
 static int sbSentDataToShmem(sbMessage_t *sbMsg)
 {
 	int dataSize;
-#if 0
-	if (ShmWritePTR == NULL)
-			return -1;
-
-	dataSize = sizeof(sbMessage_t);
-
-	memset(ShmWritePTR->data, 0, 256);
-	memcpy(ShmWritePTR->data, sbMsg, dataSize);
-	ShmWritePTR->status = FILLED;
-#else
 	struct msgq_buf buf;
 	buf.mtype = 1;	
 	dataSize = sizeof(sbMessage_t);
@@ -154,7 +114,6 @@ static int sbSentDataToShmem(sbMessage_t *sbMsg)
 		return -1;
 	}
 
-#endif
 	return dataSize;
 }
 
