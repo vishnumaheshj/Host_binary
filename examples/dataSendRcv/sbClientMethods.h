@@ -84,7 +84,7 @@ int init_write_msgq()
                 perror("ftok");
                 return -1; // Need to add and handle proper error code.
         }
-        if ((MsgQID = msgget(MsgQKEY, 0666)) == -1) {
+        if ((MsgQID = msgget(MsgQKEY, 0666 | IPC_CREAT)) == -1) {
                 perror("msgget");
                 return -1; // Need to add and handle proper error code.
         }
@@ -100,7 +100,7 @@ int init_read_msgq()
                 perror("ftok");
                 return -1; // Need to add and handle proper error code.
         }
-        if ((MsgQID = msgget(MsgQKEY, 0666)) == -1) {
+        if ((MsgQID = msgget(MsgQKEY, 0666 | IPC_CREAT)) == -1) {
                 perror("msgget");
                 return -1; // Need to add and handle proper error code.
         }
