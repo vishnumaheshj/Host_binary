@@ -48,7 +48,7 @@ uint8_t joinedNodesCount = 0;
 
 struct msgq_buf {
     long mtype;
-    char mtext[256];
+    sbMessage_t msg;
 };
 
 int8_t initDone = 0;
@@ -97,7 +97,7 @@ static int sbGetDataFromShmem(char *serverSpace)
 		    perror("msgrcv");
 		    return -1;
 	}
-	memcpy(serverSpace, buf.mtext, dataSize);
+	memcpy(serverSpace, &buf.msg, dataSize);
 	return dataSize;
 
 }
@@ -108,7 +108,7 @@ static int sbSentDataToShmem(sbMessage_t *sbMsg)
 	struct msgq_buf buf;
 	buf.mtype = 1;	
 	dataSize = sizeof(sbMessage_t);
-	memcpy(buf.mtext, sbMsg, dataSize);
+	memcpy(&buf.msg, sbMsg, dataSize);
 	if (msgsnd(msgQWriteID, &buf, dataSize, 0) == -1) {
 		perror("msgsnd");
 		return -1;
