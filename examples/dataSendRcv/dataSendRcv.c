@@ -928,39 +928,8 @@ void* appProcess(void *argument)
 	int32_t status;
 	int index;
 
-	//REMOVE_SHM
-#if 0
-	key_t          ShmReadKEY, ShmWriteKEY;
-	int            ShmReadID, ShmWriteID;
-    
-	ShmReadKEY = ftok("/home", 'y');
-	ShmReadID = shmget(ShmReadKEY, sizeof(struct Memory), 0666);
-	if (ShmReadID < 0) {
-        	printf("*** shmget error (client) ***\n");
-	}   
-    
-	ShmReadPTR = (struct Memory *) shmat(ShmReadID, NULL, 0);
-	if (ShmReadPTR == NULL) {
-        	printf("*** shmat error (client) ***\n");
-	}   
-    
-	ShmWriteKEY = ftok("/home", 'x');
-	ShmWriteID = shmget(ShmWriteKEY, sizeof(struct Memory), 0666);
-	if (ShmWriteID < 0) {
-        	printf("*** shmget error (client) ***\n");
-	}
-
-	ShmWritePTR = (struct Memory *) shmat(ShmWriteID, NULL, 0);
-	if (ShmWritePTR == NULL) {
-        	printf("*** shmat error (client) ***\n");
-	}
-
-	memset(ShmWritePTR, NOT_READY, 256);
-
-#else
 	msgQWriteID = init_write_msgq();
 	msgQReadID  = init_read_msgq();
-#endif
 	loadDeviceInfo();
 
 	//Flush all messages from the que
@@ -1016,22 +985,10 @@ void* appProcess(void *argument)
 	{
 		//initDone = 0;
 		initDone = 1;
-#if 0
-		//REMOVE_SHM
-		while (ShmReadPTR->status != FILLED)
-			continue;
-
-		memset(DataRequest.Data, 0, 128);
-		
-		DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
-		index = processMsgFromPclient((char *)(DataRequest.Data));
-		ShmReadPTR->status = TAKEN; 
-#else
 		memset(DataRequest.Data, 0, 128);
 
 		DataRequest.Len = sbGetDataFromShmem((char *)(DataRequest.Data));
 		index = processMsgFromPclient((char *)(DataRequest.Data));
-#endif
 		if (index && (index <=joinedNodesCount))
 		{
 			initDone = 0;
@@ -1039,7 +996,6 @@ void* appProcess(void *argument)
 			DataRequest.DstEndpoint = nodeInfoList[index -1].AppInfo.EndPoint;
 			consolePrint("Setting target as %x %d\n", nodeInfoList[0].DevInfo.NwkAddr, nodeInfoList[0].AppInfo.EndPoint);
 			afDataRequest(&DataRequest);
-			rpcWaitMqClientMsg(500);
 			initDone = 1;
 		}
 	}
