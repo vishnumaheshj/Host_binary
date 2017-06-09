@@ -305,6 +305,7 @@ int processMsgFromPclient(char *Data)
 	{
 		hbMessage_t hMsg;
 		hMsg.hdr.message_type = SB_STATE_CHANGE_REQ;
+		hMsg.hdr.mid = Msg->hdr.mid;
 		hMsg.data.boardData.sbType.type = Msg->data.boardData.sbType.type;
 		hMsg.data.boardData.switchData.state = Msg->data.boardData.switchData.state;
 

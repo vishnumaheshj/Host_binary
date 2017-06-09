@@ -206,6 +206,7 @@ static int processMsgFromZNP(IncomingMsgFormat_t *msg, sbMessage_t *sbMsg)
 			if (nodeInfoList[j].DevInfo.NwkAddr == msg->SrcAddr)
 			{
 				sbMsg->hdr.message_type = SB_BOARD_INFO_RSP;
+				sbMsg->hdr.mid = Msg->hdr.mid;
 				sbMsg->hdr.node_id = j + 1;
 				sbMsg->data.infoRspData.sbType.type = Msg->data.infoRspData.sbType.type;
 				sbMsg->data.infoRspData.currentState = Msg->data.infoRspData.currentState;
