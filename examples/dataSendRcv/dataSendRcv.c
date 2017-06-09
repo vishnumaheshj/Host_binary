@@ -930,7 +930,7 @@ void* appProcess(void *argument)
 
 	msgQWriteID = init_write_msgq();
 	msgQReadID  = init_read_msgq();
-	loadDeviceInfo();
+	//loadDeviceInfo();
 
 	//Flush all messages from the que
 	do
