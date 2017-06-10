@@ -68,6 +68,11 @@ int init_write_msgq()
         	perror("msgget");
                 return -1; // Need to add and handle proper error code.
 	}
+	msgctl(MsgQID, IPC_RMID, NULL);
+	if ((MsgQID = msgget(MsgQKEY, 0666 | IPC_CREAT)) == -1) {			
+        	perror("msgget");
+                return -1; // Need to add and handle proper error code.
+	}
 
         return MsgQID;
 }
@@ -83,6 +88,11 @@ int init_read_msgq()
 	if ((MsgQID = msgget(MsgQKEY, 0666 | IPC_CREAT)) == -1) {			
         	perror("msgget");
               	return -1; // Need to add and handle proper error code.
+	}
+	msgctl(MsgQID, IPC_RMID, NULL);
+	if ((MsgQID = msgget(MsgQKEY, 0666 | IPC_CREAT)) == -1) {			
+        	perror("msgget");
+                return -1; // Need to add and handle proper error code.
 	}
 
         return MsgQID;
