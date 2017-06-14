@@ -108,8 +108,7 @@ int main(int argc, char* argv[])
 	dbg_print(PRINT_LEVEL_INFO, "creating example thread\n");
 	pthread_create(&appThread, NULL, appTask, NULL);
 	pthread_create(&inMThread, NULL, appInMessageTask, NULL);
-
-	while (1)
-		;
-
+	pthread_join(rpcThread, NULL);
+	pthread_join(appThread, NULL);
+	pthread_join(inMThread, NULL);
 }
