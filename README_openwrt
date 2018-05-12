@@ -1,0 +1,10 @@
+1)Copy contents of znp_host to openwrt-sdk/packages/znp_host/src
+2)Move Maefile.package to openwrt-sdk/packages/znp_host/ as Makefile
+3)Comment out CC in examples/dataSendRcv/build/gnu/Makefile
+4) Install libpthread in openwrt sdk.
+   i)./scripts/feeds update
+   ii)./scripts/feeds list
+   iii)./scripts/feeds install libpthread
+5) From root directory of openwrt sdk execute
+   make package/znp_host/compile
+
